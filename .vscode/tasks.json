@@ -1,0 +1,191 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "xmake: Build Windows x64 (Debug)",
+            "type": "shell",
+            "command": "xmake",
+            "args": [
+                "config",
+                "-p",
+                "windows",
+                "-a",
+                "x64",
+                "-m",
+                "debug",
+                "-y",
+                "&&",
+                "xmake",
+                "build"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "detail": "Build OmegaGUI and the demo for Windows x64 in debug mode"
+        },
+        {
+            "label": "Run Demo Windows x64 (Debug)",
+            "type": "shell",
+            "command": "${workspaceFolder}/Build/Debug/x64/OmegaGUI-Demo.exe",
+            "args": [
+                "--backend=${input:backend}"
+            ],
+            "dependsOn": "xmake: Build Windows x64 (Debug)",
+            "problemMatcher": [],
+            "detail": "Build then launch the demo (x64, debug)"
+        },
+        {
+            "label": "xmake: Build Windows x64 (Release)",
+            "type": "shell",
+            "command": "xmake",
+            "args": [
+                "config",
+                "-p",
+                "windows",
+                "-a",
+                "x64",
+                "-m",
+                "release",
+                "-y",
+                "&&",
+                "xmake",
+                "build"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "detail": "Build OmegaGUI and the demo for Windows x64 in release mode"
+        },
+        {
+            "label": "Run Demo Windows x64 (Release)",
+            "type": "shell",
+            "command": "${workspaceFolder}/Build/Release/x64/OmegaGUI-Demo.exe",
+            "args": [
+                "--backend=${input:backend}"
+            ],
+            "dependsOn": "xmake: Build Windows x64 (Release)",
+            "problemMatcher": [],
+            "detail": "Build then launch the demo (x64, release)"
+        },
+        {
+            "label": "xmake: Build Windows x86 (Debug)",
+            "type": "shell",
+            "command": "xmake",
+            "args": [
+                "config",
+                "-p",
+                "windows",
+                "-a",
+                "x86",
+                "-m",
+                "debug",
+                "-y",
+                "&&",
+                "xmake",
+                "build"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "detail": "Build OmegaGUI and the demo for Windows x86 in debug mode"
+        },
+        {
+            "label": "Run Demo Windows x86 (Debug)",
+            "type": "shell",
+            "command": "${workspaceFolder}/Build/Debug/x86/OmegaGUI-Demo.exe",
+            "args": [
+                "--backend=${input:backend}"
+            ],
+            "dependsOn": "xmake: Build Windows x86 (Debug)",
+            "problemMatcher": [],
+            "detail": "Build then launch the demo (x86, debug)"
+        },
+        {
+            "label": "xmake: Build Windows x86 (Release)",
+            "type": "shell",
+            "command": "xmake",
+            "args": [
+                "config",
+                "-p",
+                "windows",
+                "-a",
+                "x86",
+                "-m",
+                "release",
+                "-y",
+                "&&",
+                "xmake",
+                "build"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$msCompile"
+            ],
+            "detail": "Build OmegaGUI and the demo for Windows x86 in release mode"
+        },
+        {
+            "label": "Run Demo Windows x86 (Release)",
+            "type": "shell",
+            "command": "${workspaceFolder}/Build/Release/x86/OmegaGUI-Demo.exe",
+            "args": [
+                "--backend=${input:backend}"
+            ],
+            "dependsOn": "xmake: Build Windows x86 (Release)",
+            "problemMatcher": [],
+            "detail": "Build then launch the demo (x86, release)"
+        },
+        {
+            "label": "Self-test all backends",
+            "type": "shell",
+            "command": "${workspaceFolder}/SelfTest.bat",
+            "problemMatcher": [],
+            "detail": "Run scripted input tests on every backend"
+        },
+        {
+            "label": "xmake: Clean",
+            "type": "shell",
+            "command": "xmake",
+            "args": [
+                "clean"
+            ],
+            "problemMatcher": [],
+            "detail": "Clean build artifacts"
+        },
+        {
+            "label": "Update Compile Commands",
+            "type": "shell",
+            "command": "${workspaceFolder}/UpdateCompileCommands.bat",
+            "problemMatcher": [],
+            "detail": "Regenerate .vscode/compile_commands.json"
+        },
+        {
+            "label": "Compile Vulkan Shaders",
+            "type": "shell",
+            "command": "${workspaceFolder}/Source/OmegaGUI/Backends/Vulkan/Shaders/CompileShaders.bat",
+            "problemMatcher": [],
+            "detail": "Rebuild the embedded SPIR-V headers"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "backend",
+            "type": "pickString",
+            "description": "Rendering backend",
+            "options": [
+                "dx11",
+                "dx12",
+                "dx10",
+                "dx9",
+                "opengl",
+                "vulkan"
+            ],
+            "default": "dx11"
+        }
+    ]
+}

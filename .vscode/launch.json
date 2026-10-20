@@ -1,0 +1,53 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(Windows) Attach",
+            "type": "cppvsdbg",
+            "request": "attach",
+            "processId": "${command:pickProcess}"
+        },
+        {
+            "name": "(Windows) Launch Demo x64 Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/Build/Debug/x64/OmegaGUI-Demo.exe",
+            "args": [
+                "--backend=${input:backend}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "preLaunchTask": "xmake: Build Windows x64 (Debug)"
+        },
+        {
+            "name": "(Windows) Launch Demo x86 Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/Build/Debug/x86/OmegaGUI-Demo.exe",
+            "args": [
+                "--backend=${input:backend}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "preLaunchTask": "xmake: Build Windows x86 (Debug)"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "backend",
+            "type": "pickString",
+            "description": "Rendering backend",
+            "options": [
+                "dx11",
+                "dx12",
+                "dx10",
+                "dx9",
+                "opengl",
+                "vulkan"
+            ],
+            "default": "dx11"
+        }
+    ]
+}

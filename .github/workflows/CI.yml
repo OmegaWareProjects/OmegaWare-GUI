@@ -1,0 +1,70 @@
+name: CI
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        build_configuration: [debug, release]
+        architecture: [x64, x86]
+    env:
+      VULKAN_SDK: ${{ github.workspace }}\External\Vulkan-Headers
+      BUILD_DIR: Build\${{ matrix.build_configuration == 'debug' && 'Debug' || 'Release' }}\${{ matrix.architecture }}
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+    - name: Checkout Vulkan Headers
+      uses: actions/checkout@v4
+      with:
+        repository: KhronosGroup/Vulkan-Headers
+        ref: vulkan-sdk-1.4.350.0
+        path: External/Vulkan-Headers
+    - name: Install XMake
+      uses: xmake-io/github-action-setup-xmake@v1
+      with:
+        xmake-version: latest
+    - name: Configure XMake
+      run: |
+        xmake f -p windows -m ${{ matrix.build_configuration }} -a ${{ matrix.architecture }} --dx9=y --dx10=y --dx11=y --dx12=y --opengl=y --vulkan=y --localization= -y
+    - name: Build with XMake
+      run: |
+        xmake build
+    - name: Upload Demo
+      uses: actions/upload-artifact@v4
+      with:
+        name: OmegaGUI-Demo-${{ matrix.build_configuration }}-${{ matrix.architecture }}
+        path: ${{ env.BUILD_DIR }}\OmegaGUI-Demo.exe
+        if-no-files-found: error
+    - name: Self-Test (WARP)
+      timeout-minutes: 10
+      run: |
+        $iFailed = 0
+        foreach ($strBackend in @("dx10", "dx11", "dx12")) {
+          $bPassed = $false
+          foreach ($iAttempt in 1, 2) {
+            $strOutput = "Build\SelfTest\$strBackend\Attempt$iAttempt"
+            New-Item -ItemType Directory -Force $strOutput | Out-Null
+            $pProcess = Start-Process -FilePath "$env:BUILD_DIR\OmegaGUI-Demo.exe" -ArgumentList "--backend=$strBackend", "--warp", "--selftest", "--output=$strOutput" -Wait -PassThru
+            Write-Host "== $strBackend attempt $iAttempt (exit code $($pProcess.ExitCode))"
+            if (Test-Path "$strOutput\selftest.txt") { Get-Content "$strOutput\selftest.txt" } else { Write-Host "no report written" }
+            if ($pProcess.ExitCode -eq 0 -and (Test-Path "$strOutput\selftest.txt")) { $bPassed = $true; break }
+          }
+          if (-not $bPassed) { $iFailed = 1 }
+        }
+        exit $iFailed
+    - name: Upload Self-Test Output
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: SelfTest-${{ matrix.build_configuration }}-${{ matrix.architecture }}
+        path: Build\SelfTest
+        if-no-files-found: ignore
