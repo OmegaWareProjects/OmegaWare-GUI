@@ -64,14 +64,14 @@ namespace OmegaGUI
 		};
 
 		bool EnsureUploadBuffer(ComPtr<ID3D12Resource>& rBuffer, std::size_t& rCapacity, std::size_t uRequired);
-		ID3D12PipelineState* WorldPipeline(EDepthBatch eBatch, bool bReversed);
+		ID3D12PipelineState* WorldPipeline(EDepthBatch eBatch, bool bReversed, bool bDepth);
 		void WaitForUploads();
 
 		ComPtr<ID3D12Device> m_pDevice;
 		ComPtr<ID3D12CommandQueue> m_pQueue;
 		ComPtr<ID3D12RootSignature> m_pRootSignature;
 		ComPtr<ID3D12PipelineState> m_pPipeline;
-		std::array<ComPtr<ID3D12PipelineState>, 8> m_aWorldPipelines;
+		std::array<ComPtr<ID3D12PipelineState>, 16> m_aWorldPipelines;
 		DXGI_FORMAT m_eWorldDepthFormat = DXGI_FORMAT_UNKNOWN;
 		ComPtr<ID3D12DescriptorHeap> m_pHeap;
 		UINT m_uDescriptorSize = 0;

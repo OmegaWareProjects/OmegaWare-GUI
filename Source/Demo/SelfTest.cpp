@@ -71,10 +71,10 @@ clSelfTest::clSelfTest(std::function<void(const std::string&)> fnScreenshot)
 	Check("text input with select-all and typing", [](const stDemoProbe& rProbe) { return rProbe.strName == "tester"; }, [](const stDemoProbe& rProbe) { return rProbe.strName; });
 
 	Pad(EGamepadButton::FaceDown);
-	Add([this] { m_fnScreenshot("selftest_osk"); }, 1);
+	Add([this] { m_fnScreenshot("selftest_osk"); }, 3);
 	Pad(EGamepadButton::DPadDown);
 	Pad(EGamepadButton::FaceDown);
-	Add([this] { m_fnScreenshot("selftest_osk_typed"); }, 1);
+	Add([this] { m_fnScreenshot("selftest_osk_typed"); }, 3);
 	Pad(EGamepadButton::Start);
 	Check("controller on-screen keyboard types a key", [](const stDemoProbe& rProbe) { return rProbe.strName == "tester1"; }, [](const stDemoProbe& rProbe) { return rProbe.strName; });
 
@@ -85,7 +85,7 @@ clSelfTest::clSelfTest(std::function<void(const std::string&)> fnScreenshot)
 	Pad(EGamepadButton::DPadDown);
 	Pad(EGamepadButton::FaceDown);
 	Check("controller d-pad moves focus down then A toggles", [](const stDemoProbe& rProbe) { return !rProbe.bFeatureB; });
-	Add([this] { m_fnScreenshot("selftest_nav"); }, 1);
+	Add([this] { m_fnScreenshot("selftest_nav"); }, 3);
 
 	Pad(EGamepadButton::RightShoulder);
 	Check("controller RB cycles to next tab", [](const stDemoProbe& rProbe) { return rProbe.strSidebarTab == "settings"; }, [](const stDemoProbe& rProbe) { return rProbe.strSidebarTab; });
@@ -115,11 +115,11 @@ clSelfTest::clSelfTest(std::function<void(const std::string&)> fnScreenshot)
 	Check("console drag selects log text", [](const stDemoProbe& rProbe) { return !rProbe.strConsoleSelection.empty(); });
 	Check("console ctrl+c copies the selection", [](const stDemoProbe& rProbe) { return !rProbe.strConsoleSelection.empty() && ReadClipboard() == rProbe.strConsoleSelection; }, [](const stDemoProbe&) { return ReadClipboard(); });
 	Add([pClipboard] { SetClipboardText(*pClipboard); }, 1);
-	Add([this] { m_fnScreenshot("selftest_console"); }, 1);
+	Add([this] { m_fnScreenshot("selftest_console"); }, 3);
 
 	Click("tab_settings");
 	Click("combo_theme", { .9f, .5f });
-	Add([this] { m_fnScreenshot("selftest_combo"); }, 1);
+	Add([this] { m_fnScreenshot("selftest_combo"); }, 3);
 	Key(VK_DOWN);
 	Key(VK_RETURN);
 	Check("combo popup keyboard selection", [](const stDemoProbe& rProbe) { return rProbe.iTheme == 1; }, [](const stDemoProbe& rProbe) { return std::to_string(rProbe.iTheme); });
@@ -174,7 +174,7 @@ clSelfTest::clSelfTest(std::function<void(const std::string&)> fnScreenshot)
 	Click("visuals_list");
 	Add([] {}, 5);
 	Check("table sorts by its default column", [](const stDemoProbe& rProbe) { return rProbe.iTableSortColumn == 0 && rProbe.bTableAscending && rProbe.strTableFirst == "bot_alpha"; }, [](const stDemoProbe& rProbe) { return std::format("{} {} {}", rProbe.iTableSortColumn, rProbe.bTableAscending, rProbe.strTableFirst); });
-	Add([this] { m_fnScreenshot("selftest_table"); }, 1);
+	Add([this] { m_fnScreenshot("selftest_table"); }, 3);
 	ClickAt([] { const rect rcTable = FindRect("table_entities").value_or(rect{}); return rcTable.min + vec2{ 12.f, 8.f }; });
 	Check("clicking the sorted header reverses the order", [](const stDemoProbe& rProbe) { return rProbe.iTableSortColumn == 0 && !rProbe.bTableAscending && rProbe.strTableFirst == "bot_delta"; }, [](const stDemoProbe& rProbe) { return std::format("{} {} {}", rProbe.iTableSortColumn, rProbe.bTableAscending, rProbe.strTableFirst); });
 	Click("table_header_2");
@@ -190,7 +190,7 @@ clSelfTest::clSelfTest(std::function<void(const std::string&)> fnScreenshot)
 		return pFont && pFont->FindGlyph(U'Р') && pFont->FindGlyph(U'й');
 	});
 	Add([] { OmegaLocalization::SetLocale("en"); }, 4);
-	Add([this] { m_fnScreenshot("selftest_end"); }, 1);
+	Add([this] { m_fnScreenshot("selftest_end"); }, 3);
 }
 
 void clSelfTest::Add(std::function<void()> fnAction, int iWaitFrames)

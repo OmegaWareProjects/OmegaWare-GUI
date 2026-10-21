@@ -19,6 +19,7 @@ namespace OmegaGUI
 		VkQueue hQueue = VK_NULL_HANDLE;
 		VkRenderPass hRenderPass = VK_NULL_HANDLE;
 		std::uint32_t uSubpass = 0;
+		VkFormat eTargetFormat = VK_FORMAT_UNDEFINED;
 		VkRenderPass hWorldRenderPass = VK_NULL_HANDLE;
 		std::uint32_t uWorldSubpass = 0;
 		bool bWorldHasDepth = true;

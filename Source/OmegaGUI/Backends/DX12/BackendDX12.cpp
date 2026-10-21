@@ -181,9 +181,9 @@ namespace OmegaGUI
 		m_pRootSignature.Reset();
 	}
 
-	ID3D12PipelineState* clBackendDX12::WorldPipeline(EDepthBatch eBatch, bool bReversed)
+	ID3D12PipelineState* clBackendDX12::WorldPipeline(EDepthBatch eBatch, bool bReversed, bool bDepth)
 	{
-		ComPtr<ID3D12PipelineState>& rPipeline = m_aWorldPipelines[static_cast<std::size_t>(eBatch) * 2 + (bReversed ? 1 : 0)];
+		ComPtr<ID3D12PipelineState>& rPipeline = m_aWorldPipelines[(bDepth ? 8 : 0) + static_cast<std::size_t>(eBatch) * 2 + (bReversed ? 1 : 0)];
 		if (rPipeline)
 			return rPipeline.Get();
 
@@ -204,7 +204,7 @@ namespace OmegaGUI
 		stPipeline.NumRenderTargets = 1;
 		stPipeline.RTVFormats[0] = m_stConfig.eRenderTargetFormat;
 		stPipeline.SampleDesc.Count = 1;
-		if (m_eWorldDepthFormat != DXGI_FORMAT_UNKNOWN)
+		if (bDepth)
 		{
 			stPipeline.DSVFormat = m_eWorldDepthFormat;
 			stPipeline.DepthStencilState.DepthEnable = eBatch != EDepthBatch::Always;
@@ -232,12 +232,14 @@ namespace OmegaGUI
 		m_hWorldDepth = hDepthStencil;
 		m_uWorldWidth = uWidth;
 		m_uWorldHeight = uHeight;
-		if (eDepthFormat != m_eWorldDepthFormat)
+		if (eDepthFormat != DXGI_FORMAT_UNKNOWN && eDepthFormat != m_eWorldDepthFormat)
 		{
-			for (auto& pPipeline : m_aWorldPipelines)
-				pPipeline.Reset();
+			for (std::size_t i = 8; i < m_aWorldPipelines.size(); ++i)
+				m_aWorldPipelines[i].Reset();
 			m_eWorldDepthFormat = eDepthFormat;
 		}
+		if (eDepthFormat == DXGI_FORMAT_UNKNOWN)
+			m_hWorldDepth = {};
 	}
 
 	TextureHandle clBackendDX12::CreateTexture(const std::uint8_t* pPixelsRGBA, int iWidth, int iHeight)
@@ -463,7 +465,7 @@ namespace OmegaGUI
 		rFrame.pWorldIndexBuffer->Unmap(0, nullptr);
 
 		ID3D12GraphicsCommandList* pList = m_pCommandList;
-		const bool bHasDepth = m_eWorldDepthFormat != DXGI_FORMAT_UNKNOWN;
+		const bool bHasDepth = m_eWorldDepthFormat != DXGI_FORMAT_UNKNOWN && m_hWorldDepth.ptr != 0;
 		if (m_hWorldRenderTarget.ptr)
 			pList->OMSetRenderTargets(1, &m_hWorldRenderTarget, FALSE, bHasDepth ? &m_hWorldDepth : nullptr);
 		const D3D12_VIEWPORT stViewport{ 0.f, 0.f, static_cast<float>(m_uWorldWidth), static_cast<float>(m_uWorldHeight), 0.f, 1.f };
@@ -487,7 +489,7 @@ namespace OmegaGUI
 			const auto eBatch = static_cast<EDepthBatch>(i);
 			const stWorldBatch& rBatch = rList.GetBatch(eBatch);
 			if (!rBatch.aIndices.empty() && (bHasDepth || eBatch == EDepthBatch::Always || eBatch == EDepthBatch::Tested))
-				if (ID3D12PipelineState* pPipeline = WorldPipeline(eBatch, stPass.bReversedZ))
+				if (ID3D12PipelineState* pPipeline = WorldPipeline(eBatch, stPass.bReversedZ, bHasDepth))
 				{
 					pList->SetPipelineState(pPipeline);
 					pList->DrawIndexedInstanced(static_cast<UINT>(rBatch.aIndices.size()), 1, uIndexBase, iVertexBase, 0);
@@ -495,5 +497,7 @@ namespace OmegaGUI
 			uIndexBase += static_cast<UINT>(rBatch.aIndices.size());
 			iVertexBase += static_cast<INT>(rBatch.aVertices.size());
 		}
+		if (m_hWorldRenderTarget.ptr && bHasDepth)
+			pList->OMSetRenderTargets(1, &m_hWorldRenderTarget, FALSE, nullptr);
 	}
 }

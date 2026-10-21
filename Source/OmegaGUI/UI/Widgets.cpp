@@ -335,6 +335,50 @@ namespace OmegaGUI
 		rList.AddText({ rcCap.max.x + 6.f, std::floor(rcCap.Center().y - vecAction.y * .5f) }, WithGlobalAlpha(rStyle.Get(EColor::TextMuted)), strAction);
 	}
 
+	void ControllerLegend()
+	{
+		stContext& g = Ctx();
+		if (!g.clInputState.GetGamepad().bConnected)
+			return;
+		const vec2 vecDisplay = GetDisplaySize();
+		SetNextWindowPos({ vecDisplay.x * .5f, vecDisplay.y - 16.f }, ECondition::Always, { .5f, 1.f });
+		constexpr EWindowFlags eFlags = EWindowFlags::NoTitleBar | EWindowFlags::NoResize | EWindowFlags::NoMove | EWindowFlags::NoScrollbar | EWindowFlags::NoScrollWithMouse |
+			EWindowFlags::NoCollapse | EWindowFlags::NoSavedSettings | EWindowFlags::NoNav | EWindowFlags::NoInputs | EWindowFlags::NoBringToFront | EWindowFlags::AlwaysAutoResize | EWindowFlags::NoSnap;
+		if (Begin("##controller_legend", nullptr, eFlags))
+		{
+			const float flSpacing = Style().vecItemSpacing.x * 2.f;
+			KeyHint(GamepadKey(EGamepadButton::DPadUp), "/");
+			SameLine(0.f, 2.f);
+			KeyHint(GamepadKey(EGamepadButton::DPadDown), "navigate");
+			SameLine(0.f, flSpacing);
+			KeyHint(GamepadKey(EGamepadButton::DPadLeft), "/");
+			SameLine(0.f, 2.f);
+			KeyHint(GamepadKey(EGamepadButton::DPadRight), "adjust");
+			SameLine(0.f, flSpacing);
+			KeyHint(GamepadKey(EGamepadButton::FaceDown), "select");
+			SameLine(0.f, flSpacing);
+			KeyHint(GamepadKey(EGamepadButton::FaceRight), "back");
+			SameLine(0.f, flSpacing);
+			KeyHint(GamepadKey(EGamepadButton::LeftShoulder), "/");
+			SameLine(0.f, 2.f);
+			KeyHint(GamepadKey(EGamepadButton::RightShoulder), "tabs");
+			SameLine(0.f, flSpacing);
+			KeyHint(GamepadKey(EGamepadButton::LeftTrigger), "/");
+			SameLine(0.f, 2.f);
+			KeyHint(GamepadKey(EGamepadButton::RightTrigger), "windows");
+			SameLine(0.f, flSpacing);
+			KeyHint(GamepadKey(EGamepadButton::Back), "+ sticks move/size");
+			if (g.stSettings.bToggleWithGamepad)
+			{
+				SameLine(0.f, flSpacing);
+				KeyHint(GamepadKey(EGamepadButton::Back), "+");
+				SameLine(0.f, 2.f);
+				KeyHint(GamepadKey(EGamepadButton::Start), "close menu");
+			}
+		}
+		End();
+	}
+
 	void ControllerHints()
 	{
 		stContext& g = Ctx();

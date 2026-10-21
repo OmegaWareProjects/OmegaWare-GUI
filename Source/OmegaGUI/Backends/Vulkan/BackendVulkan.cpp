@@ -38,6 +38,23 @@ namespace OmegaGUI
 			default: return bReversed ? VK_COMPARE_OP_GREATER_OR_EQUAL : VK_COMPARE_OP_LESS_OR_EQUAL;
 			}
 		}
+
+		[[nodiscard]] bool IsSrgbFormat(VkFormat eFormat)
+		{
+			switch (eFormat)
+			{
+			case VK_FORMAT_R8_SRGB:
+			case VK_FORMAT_R8G8_SRGB:
+			case VK_FORMAT_R8G8B8_SRGB:
+			case VK_FORMAT_B8G8R8_SRGB:
+			case VK_FORMAT_R8G8B8A8_SRGB:
+			case VK_FORMAT_B8G8R8A8_SRGB:
+			case VK_FORMAT_A8B8G8R8_SRGB_PACK32:
+				return true;
+			default:
+				return false;
+			}
+		}
 	}
 
 	clBackendVulkan::~clBackendVulkan()
@@ -184,9 +201,12 @@ namespace OmegaGUI
 
 	VkPipeline clBackendVulkan::CreatePipeline(VkShaderModule hVertex, VkRenderPass hRenderPass, std::uint32_t uSubpass, bool bWorld, EDepthBatch eBatch, bool bReversed)
 	{
+		const VkBool32 bLinearOutput = IsSrgbFormat(m_stConfig.eTargetFormat) ? VK_TRUE : VK_FALSE;
+		const VkSpecializationMapEntry stEntry{ 0, 0, sizeof(VkBool32) };
+		const VkSpecializationInfo stSpecialization{ 1, &stEntry, sizeof(VkBool32), &bLinearOutput };
 		VkPipelineShaderStageCreateInfo aStages[2]{};
 		aStages[0] = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, hVertex, "main", nullptr };
-		aStages[1] = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, m_hFragmentModule, "main", nullptr };
+		aStages[1] = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, m_hFragmentModule, "main", &stSpecialization };
 
 		const VkVertexInputBindingDescription stBinding{ 0, bWorld ? static_cast<std::uint32_t>(sizeof(stWorldVertex)) : static_cast<std::uint32_t>(sizeof(stVertex)), VK_VERTEX_INPUT_RATE_VERTEX };
 		VkVertexInputAttributeDescription aAttributes[3]{};

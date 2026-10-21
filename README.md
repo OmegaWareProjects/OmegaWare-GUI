@@ -72,11 +72,11 @@ Each backend can be switched off: `xmake f --dx9=n --vulkan=n`.
 
 | Script | Purpose |
 |---|---|
-| `Build.bat` / `.sh` | configure and build (`mode`, `arch`) |
-| `Run.bat` / `.sh` | build if needed and launch the demo (`backend`, `mode`, `arch`) |
-| `SelfTest.bat` / `.sh` | run scripted mouse, keyboard and controller tests on every backend |
-| `UpdateCompileCommands.bat` / `.sh` | write `.vscode/compile_commands.json` |
-| `Source/OmegaGUI/Backends/Vulkan/Shaders/CompileShaders.bat` / `.sh` | rebuild the SPIR-V headers |
+| `Build.bat` | configure and build (`mode`, `arch`) |
+| `Run.bat` | build if needed and launch the demo (`backend`, `mode`, `arch`) |
+| `SelfTest.bat` | run scripted mouse, keyboard and controller tests on every backend |
+| `UpdateCompileCommands.bat` | write `.vscode/compile_commands.json` |
+| `Source/OmegaGUI/Backends/Vulkan/Shaders/CompileShaders.bat` | rebuild the SPIR-V headers |
 
 Demo flags: `--backend=dx9|dx10|dx11|dx12|opengl|vulkan`, `--tab=<name>`, `--hidden`,
 `--frames=N --screenshot=file.bmp`, `--selftest --output=<folder>`, `--lang=<code>` (with localization), `--warp` (D3D10/11/12 only:

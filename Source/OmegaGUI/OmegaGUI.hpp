@@ -264,6 +264,7 @@ namespace OmegaGUI
 	void Alert(EToastKind eKind, std::string_view strText);
 	void KeyHint(KeyCode uKey, std::string_view strAction);
 	void ControllerHints();
+	void ControllerLegend();
 
 	template <typename... Args>
 	void Text(std::format_string<Args...> strFormat, Args&&... args)

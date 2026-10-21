@@ -147,6 +147,7 @@ namespace
 			stConfig.uQueueFamily = m_uQueueFamily;
 			stConfig.hQueue = m_hQueue;
 			stConfig.hRenderPass = m_hRenderPass;
+			stConfig.eTargetFormat = m_stFormat.format;
 			stConfig.bWorldHasDepth = true;
 			stConfig.uFramesInFlight = uFramesInFlight;
 			return m_clBackend.Initialize(stConfig);
