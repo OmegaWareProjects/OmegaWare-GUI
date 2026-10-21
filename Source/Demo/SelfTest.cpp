@@ -130,6 +130,16 @@ clSelfTest::clSelfTest(std::function<void(const std::string&)> fnScreenshot)
 	Click("hotkey_aim", { .9f, .5f });
 	Key(VK_F5);
 	Check("hotkey captures next key", [](const stDemoProbe& rProbe) { return rProbe.uAimKey == VK_F5; }, [](const stDemoProbe& rProbe) { return std::to_string(rProbe.uAimKey); });
+	Add([] {
+		const rect rcHotkey = FindRect("hotkey_aim").value_or(rect{});
+		GetInput().AddMousePositionEvent({ rcHotkey.min.x + rcHotkey.Size().x * .9f, rcHotkey.Center().y });
+		GetInput().AddMouseButtonEvent(EMouseButton::Right, true);
+		GetInput().AddMouseButtonEvent(EMouseButton::Right, false);
+	}, 12);
+	Add([this] { m_fnScreenshot("selftest_hotkey_menu"); }, 3);
+	Key(VK_DOWN);
+	Key(VK_RETURN);
+	Check("hotkey context menu changes the mode", [](const stDemoProbe& rProbe) { return rProbe.eAimMode != EHotkeyMode::Hold; }, [](const stDemoProbe& rProbe) { return std::to_string(static_cast<int>(rProbe.eAimMode)); });
 
 	auto pPerfBefore = std::make_shared<rect>();
 	Add([] { FocusWindow("perf"); }, 2);

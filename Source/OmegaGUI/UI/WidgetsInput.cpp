@@ -2,6 +2,8 @@
 
 #include <Windows.h>
 
+#include <array>
+
 namespace OmegaGUI
 {
 	namespace
@@ -456,86 +458,168 @@ namespace OmegaGUI
 		rState.flBlink = 0.f;
 	}
 
-	bool Hotkey(std::string_view strLabel, KeyCode* pKey)
+	namespace
 	{
-		stContext& g = Ctx();
-		stWindow* pWindow = CurrentWindow();
-		if (pWindow->bSkipItems)
-			return false;
-		const stStyle& rStyle = g.stCurrentStyle;
-		clInput& rInput = g.clInputState;
-		const ID uID = pWindow->GetID(strLabel);
-		rect rcTotal;
-		float flLabelWidth = 0.f;
-		const rect rcControl = LabeledControlRect(strLabel, FrameHeight(), rcTotal, flLabelWidth);
-		ItemSize(rcTotal.Size(), rStyle.vecFramePadding.y);
-		if (!ItemAdd(rcTotal, uID) && g.uHotkeyCapture != uID)
-			return false;
+		bool HotkeyControl(std::string_view strLabel, KeyCode* pKey, std::string_view strBadge, bool bBadgeActive, bool bNotify)
+		{
+			stContext& g = Ctx();
+			stWindow* pWindow = CurrentWindow();
+			if (pWindow->bSkipItems)
+				return false;
+			const stStyle& rStyle = g.stCurrentStyle;
+			clInput& rInput = g.clInputState;
+			const ID uID = pWindow->GetID(strLabel);
+			rect rcTotal;
+			float flLabelWidth = 0.f;
+			const rect rcControl = LabeledControlRect(strLabel, FrameHeight(), rcTotal, flLabelWidth);
+			ItemSize(rcTotal.Size(), rStyle.vecFramePadding.y);
+			if (!ItemAdd(rcTotal, uID) && g.uHotkeyCapture != uID)
+				return false;
 
-		bool bHovered = false;
-		const bool bCapturing = g.uHotkeyCapture == uID;
-		bool bChanged = false;
-		if (!bCapturing)
-		{
-			if (ButtonBehavior(rcControl, uID, &bHovered, nullptr, EItemFlags::PressOnClick))
+			bool bHovered = false;
+			const bool bCapturing = g.uHotkeyCapture == uID;
+			bool bChanged = false;
+			if (!bCapturing)
 			{
-				g.uHotkeyCapture = uID;
-				g.iHotkeyCaptureFrame = g.iFrame;
-				SetActiveID(uID, pWindow);
-			}
-		}
-		else
-		{
-			KeepAliveID(uID);
-			g.rcStickyActive = rcControl;
-			bHovered = ItemHoverable(rcControl, uID);
-			if (g.iFrame > g.iHotkeyCaptureFrame + 1)
-			{
-				KeyCode uPressed = 0;
-				for (KeyCode uKey = 1; uKey < kKeyCount; ++uKey)
+				if (ButtonBehavior(rcControl, uID, &bHovered, nullptr, EItemFlags::PressOnClick))
 				{
-					if (uKey == VK_SHIFT || uKey == VK_CONTROL || uKey == VK_MENU)
-						continue;
-					if (uKey >= GamepadKey(EGamepadButton::LeftStickUp) && uKey <= GamepadKey(EGamepadButton::LeftStickRight))
-						continue;
-					if (rInput.IsKeyPressed(uKey))
+					g.uHotkeyCapture = uID;
+					g.iHotkeyCaptureFrame = g.iFrame;
+					SetActiveID(uID, pWindow);
+				}
+			}
+			else
+			{
+				KeepAliveID(uID);
+				g.rcStickyActive = rcControl;
+				bHovered = ItemHoverable(rcControl, uID);
+				if (g.iFrame > g.iHotkeyCaptureFrame + 1)
+				{
+					KeyCode uPressed = 0;
+					for (KeyCode uKey = 1; uKey < kKeyCount; ++uKey)
 					{
-						uPressed = uKey;
-						break;
+						if (uKey == VK_SHIFT || uKey == VK_CONTROL || uKey == VK_MENU)
+							continue;
+						if (uKey >= GamepadKey(EGamepadButton::LeftStickUp) && uKey <= GamepadKey(EGamepadButton::LeftStickRight))
+							continue;
+						if (rInput.IsKeyPressed(uKey))
+						{
+							uPressed = uKey;
+							break;
+						}
+					}
+					if (uPressed)
+					{
+						if (uPressed == VK_ESCAPE || uPressed == GamepadKey(EGamepadButton::FaceRight))
+							*pKey = 0;
+						else
+							*pKey = uPressed;
+						bChanged = true;
+						g.uHotkeyCapture = 0;
+						ClearActiveID();
+						MarkSettingsDirty();
 					}
 				}
-				if (uPressed)
+			}
+
+			const float flHover = AnimateBool(uID, bHovered || bCapturing || (g.uNavID == uID && g.bNavVisible));
+			if (flLabelWidth > 0.f)
+				RenderText({ rcTotal.min.x, std::floor(rcTotal.Center().y - GetTextLineHeight() * .5f) }, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
+			RenderFrame(rcControl, rStyle.Get(EColor::Background), true, bCapturing ? rStyle.Get(EColor::Accent) : rStyle.Get(EColor::Border).Lerp(rStyle.Get(EColor::BorderHover), flHover), rStyle.flRoundingSmall);
+			if (g.uHotkeyCapture == uID)
+			{
+				pWindow->drawList.AddGlowRect(rcControl.min, rcControl.max, WithGlobalAlpha(rStyle.Get(EColor::AccentGlow)), 3.f, rStyle.flRoundingSmall);
+				const float flPulse = .55f + .45f * std::sin(static_cast<float>(g.dTime) * 6.f);
+				RenderTextClipped(rcControl, "press a key...", rStyle.Get(EColor::Accent).MultiplyAlpha(flPulse), { .5f, .5f });
+			}
+			else
+			{
+				rect rcKey = rcControl;
+				if (!strBadge.empty() && g.stShared.pFont)
 				{
-					if (uPressed == VK_ESCAPE || uPressed == GamepadKey(EGamepadButton::FaceRight))
-						*pKey = 0;
-					else
-						*pKey = uPressed;
+					const float flBadgeSize = std::floor(g.stShared.flFontSize * .86f);
+					const vec2 vecBadge = g.stShared.pFont->MeasureText(strBadge, flBadgeSize);
+					const float flPad = std::floor(flBadgeSize * .45f);
+					const float flCenterY = rcControl.Center().y;
+					const rect rcBadge{ { rcControl.max.x - flPad - vecBadge.x - flPad * 2.f, std::floor(flCenterY - vecBadge.y * .5f - flPad * .4f) }, { rcControl.max.x - flPad, std::ceil(flCenterY + vecBadge.y * .5f + flPad * .4f) } };
+					const color colBadge = rStyle.Get(bBadgeActive ? EColor::Accent : EColor::TextMuted);
+					pWindow->drawList.AddRectFilled(rcBadge.min, rcBadge.max, WithGlobalAlpha(colBadge.MultiplyAlpha(.16f)), rStyle.flRoundingSmall);
+					pWindow->drawList.AddRect(rcBadge.min, rcBadge.max, WithGlobalAlpha(colBadge.MultiplyAlpha(.5f)), rStyle.flRoundingSmall);
+					pWindow->drawList.AddText({ rcBadge.min.x + flPad, std::floor(flCenterY - vecBadge.y * .5f) }, WithGlobalAlpha(colBadge), strBadge, flBadgeSize);
+					rcKey.max.x = rcBadge.min.x - flPad;
+					if (bNotify)
+					{
+						const float flRadius = std::max(2.f, std::floor(flBadgeSize * .16f));
+						pWindow->drawList.AddCircleFilled({ rcBadge.min.x - flPad - flRadius, flCenterY }, flRadius, WithGlobalAlpha(rStyle.Get(EColor::Accent)));
+						rcKey.max.x -= flRadius * 2.f + flPad;
+					}
+				}
+				const std::string strName = std::format("[ {} ]", KeyName(*pKey, rInput.GetGamepad().eType));
+				RenderTextClipped(rcKey, strName, rStyle.Get(*pKey ? EColor::Accent : EColor::TextDisabled), { .5f, .5f });
+			}
+			RenderNavHighlight(rcTotal, uID);
+			pWindow->stLast.bEdited = bChanged;
+			return bChanged;
+		}
+	}
+
+	bool Hotkey(std::string_view strLabel, KeyCode* pKey)
+	{
+		return HotkeyControl(strLabel, pKey, {}, false, false);
+	}
+
+	bool Hotkey(std::string_view strLabel, stHotkey* pHotkey, const stHotkeyText& stText)
+	{
+		if (CurrentWindow()->bSkipItems)
+			return false;
+		const std::array<std::string_view, 3> aModes = { stText.strAlwaysOn, stText.strHold, stText.strToggle };
+		const std::size_t uMode = std::min<std::size_t>(static_cast<std::size_t>(pHotkey->eMode), aModes.size() - 1);
+		bool bChanged = HotkeyControl(strLabel, &pHotkey->uKey, aModes[uMode], pHotkey->bActive, pHotkey->bNotify);
+		if (!stText.strHint.empty())
+			ItemTooltip(stText.strHint);
+		if (BeginPopupContextItem())
+		{
+			TextDisabled(VisibleLabel(strLabel));
+			Separator();
+			for (std::size_t uIndex = 0; uIndex < aModes.size(); ++uIndex)
+			{
+				bool bSelected = uIndex == uMode;
+				if (MenuItem(std::format("{}###mode{}", aModes[uIndex], uIndex), {}, &bSelected))
+				{
+					pHotkey->eMode = static_cast<EHotkeyMode>(uIndex);
+					pHotkey->bActive = pHotkey->eMode == EHotkeyMode::AlwaysOn;
 					bChanged = true;
-					g.uHotkeyCapture = 0;
-					ClearActiveID();
-					MarkSettingsDirty();
 				}
 			}
+			Separator();
+			if (MenuItem(std::format("{}###notify", stText.strNotify), {}, &pHotkey->bNotify))
+				bChanged = true;
+			EndPopup();
 		}
-
-		const float flHover = AnimateBool(uID, bHovered || bCapturing || (g.uNavID == uID && g.bNavVisible));
-		if (flLabelWidth > 0.f)
-			RenderText({ rcTotal.min.x, std::floor(rcTotal.Center().y - GetTextLineHeight() * .5f) }, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
-		RenderFrame(rcControl, rStyle.Get(EColor::Background), true, bCapturing ? rStyle.Get(EColor::Accent) : rStyle.Get(EColor::Border).Lerp(rStyle.Get(EColor::BorderHover), flHover), rStyle.flRoundingSmall);
-		if (g.uHotkeyCapture == uID)
-		{
-			pWindow->drawList.AddGlowRect(rcControl.min, rcControl.max, WithGlobalAlpha(rStyle.Get(EColor::AccentGlow)), 3.f, rStyle.flRoundingSmall);
-			const float flPulse = .55f + .45f * std::sin(static_cast<float>(g.dTime) * 6.f);
-			RenderTextClipped(rcControl, "press a key...", rStyle.Get(EColor::Accent).MultiplyAlpha(flPulse), { .5f, .5f });
-		}
-		else
-		{
-			const std::string strName = std::format("[ {} ]", KeyName(*pKey, rInput.GetGamepad().eType));
-			RenderTextClipped(rcControl, strName, rStyle.Get(*pKey ? EColor::Accent : EColor::TextDisabled), { .5f, .5f });
-		}
-		RenderNavHighlight(rcTotal, uID);
-		pWindow->stLast.bEdited = bChanged;
+		if (bChanged)
+			MarkSettingsDirty();
 		return bChanged;
+	}
+
+	bool UpdateHotkey(stHotkey& rHotkey)
+	{
+		const bool bWasActive = rHotkey.bActive;
+		const bool bKeysAllowed = !WantsKeyboard();
+		const clInput& rInput = GetInput();
+		switch (rHotkey.eMode)
+		{
+		case EHotkeyMode::AlwaysOn:
+			rHotkey.bActive = true;
+			break;
+		case EHotkeyMode::Hold:
+			rHotkey.bActive = bKeysAllowed && rHotkey.uKey != 0 && rInput.IsKeyDown(rHotkey.uKey);
+			break;
+		case EHotkeyMode::Toggle:
+			if (bKeysAllowed && rHotkey.uKey != 0 && rInput.IsKeyPressed(rHotkey.uKey))
+				rHotkey.bActive = !rHotkey.bActive;
+			break;
+		}
+		return rHotkey.bActive != bWasActive;
 	}
 
 	bool ColorEdit(std::string_view strLabel, color* pColor, bool bAlpha)

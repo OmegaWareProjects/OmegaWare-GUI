@@ -24,8 +24,9 @@ own depth buffer so drawings hide behind walls.
 - **Tabs**: horizontal tab bars with an animated underline, vertical sidebar tab bars, closable tabs.
 - **Widgets**: buttons (primary, secondary, danger, ghost), text links, checkboxes, toggles,
   radio buttons, float/int sliders, steppers, combos, selectables, text input (password,
-  decimal/hex filters, clipboard, selection), hotkey capture (keyboard, mouse and controller),
-  HSV colour picker, progress bars, line and histogram plots, collapsing headers, tree nodes,
+  decimal/hex filters, clipboard, selection), hotkey capture (keyboard, mouse and controller;
+  `stHotkey` adds an always on, hold or toggle mode shown as a badge and picked from a
+  right-click menu, plus a notify option, with `UpdateHotkey` to drive it), HSV colour picker, progress bars, line and histogram plots, collapsing headers, tree nodes,
   columns, sections, groups, alerts, tags, breadcrumbs and key hints.
 - **Tables**: `BeginTable` / `EndTable` with stretch or fixed columns, a header row, sortable
   columns (`TableGetSortSpecs`), borders, striped rows and hovered row highlight.

@@ -43,7 +43,7 @@ namespace
 		float flFov = 90.f;
 		float flSmoothing = .35f;
 		int iBone = 0;
-		KeyCode uAimKey = 0x02;
+		stHotkey stAimKey{ .uKey = 0x02, .eMode = EHotkeyMode::Hold, .bNotify = true };
 		bool bVisibleOnly = true;
 		int iPriority = 0;
 
@@ -244,7 +244,7 @@ namespace
 		int iBone = d.iBone;
 		Combo("target bone", &iBone, aBones);
 		d.iBone = iBone;
-		Hotkey("activation key", &d.uAimKey);
+		Hotkey("activation key", &d.stAimKey);
 		Track("hotkey_aim");
 		Checkbox("visible targets only", &d.bVisibleOnly);
 		Header("priority");
@@ -730,6 +730,9 @@ void DemoFrame(const stDemoCamera& stCamera)
 	while (d.aFrameTimes.size() > 120)
 		d.aFrameTimes.pop_front();
 
+	if (UpdateHotkey(d.stAimKey) && d.stAimKey.bNotify)
+		PushToast(d.stAimKey.bActive ? EToastKind::Success : EToastKind::Info, d.stAimKey.bActive ? "aim assist on" : "aim assist off", 1.5f);
+
 	DrawWorld(stCamera);
 	DrawOverlays();
 	MainWindow();
@@ -747,7 +750,8 @@ void DemoFrame(const stDemoCamera& stCamera)
 	g_stProbe.flFov = d.flFov;
 	g_stProbe.iTheme = d.iTheme;
 	g_stProbe.bShowConsole = d.bShowConsole;
-	g_stProbe.uAimKey = d.uAimKey;
+	g_stProbe.uAimKey = d.stAimKey.uKey;
+	g_stProbe.eAimMode = d.stAimKey.eMode;
 	g_stProbe.bMenuVisible = IsVisible();
 	g_stProbe.mapRects["console_input"] = d.clLog.GetInputRect();
 	g_stProbe.mapRects["console_window"] = d.clLog.GetWindowRect();

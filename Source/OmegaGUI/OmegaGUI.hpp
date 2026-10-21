@@ -122,6 +122,30 @@ namespace OmegaGUI
 		Error,
 	};
 
+	enum class EHotkeyMode : std::uint8_t
+	{
+		AlwaysOn,
+		Hold,
+		Toggle,
+	};
+
+	struct stHotkey
+	{
+		KeyCode uKey = 0;
+		EHotkeyMode eMode = EHotkeyMode::Toggle;
+		bool bNotify = false;
+		bool bActive = false;
+	};
+
+	struct stHotkeyText
+	{
+		std::string_view strAlwaysOn = "always";
+		std::string_view strHold = "hold";
+		std::string_view strToggle = "toggle";
+		std::string_view strNotify = "notify when toggled";
+		std::string_view strHint = "right-click to change the mode";
+	};
+
 	struct stConfig
 	{
 		std::filesystem::path pathSettings;
@@ -290,6 +314,8 @@ namespace OmegaGUI
 	bool Selectable(std::string_view strLabel, bool bSelected = false, const vec2& vecSize = {});
 	bool InputText(std::string_view strLabel, std::string* pText, std::string_view strHint = {}, EInputTextFlags eFlags = EInputTextFlags::None);
 	bool Hotkey(std::string_view strLabel, KeyCode* pKey);
+	bool Hotkey(std::string_view strLabel, stHotkey* pHotkey, const stHotkeyText& stText = {});
+	bool UpdateHotkey(stHotkey& rHotkey);
 	bool ColorEdit(std::string_view strLabel, color* pColor, bool bAlpha = true);
 	void ProgressBar(float flFraction, const vec2& vecSize = {}, std::string_view strOverlay = {});
 	void PlotLines(std::string_view strLabel, std::span<const float> aValues, float flMin = 0.f, float flMax = 0.f, const vec2& vecSize = {});

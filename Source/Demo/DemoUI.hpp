@@ -27,6 +27,7 @@ struct stDemoProbe
 	OmegaGUI::vec2 vecPerfSize;
 	bool bPerfCollapsed = false;
 	OmegaGUI::KeyCode uAimKey = 0;
+	OmegaGUI::EHotkeyMode eAimMode = OmegaGUI::EHotkeyMode::Hold;
 	bool bMenuVisible = false;
 	int iTableSortColumn = -1;
 	bool bTableAscending = true;
