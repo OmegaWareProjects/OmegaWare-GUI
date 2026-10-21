@@ -1,6 +1,8 @@
 #include "Demo/SelfTest.hpp"
 
+#ifdef OMEGAGUI_DEMO_LOCALIZATION
 #include "OmegaLocalization/OmegaLocalization.hpp"
+#endif
 
 #include <Windows.h>
 
@@ -184,12 +186,14 @@ clSelfTest::clSelfTest(std::function<void(const std::string&)> fnScreenshot)
 		const auto rcHeader = FindRect("table_header_2");
 		return rcTable && rcHeader && Near(rcHeader->max.x, rcTable->max.x, 1.f) && rcTable->Height() > rcHeader->Height() * 4.f;
 	});
+#ifdef OMEGAGUI_DEMO_LOCALIZATION
 	Add([] { OmegaLocalization::SetLocale("de"); }, 4);
 	Check("other languages keep the glyphs of their names", [](const stDemoProbe&) {
 		const clFont* pFont = GetFonts().GetFont();
 		return pFont && pFont->FindGlyph(U'Р') && pFont->FindGlyph(U'й');
 	});
 	Add([] { OmegaLocalization::SetLocale("en"); }, 4);
+#endif
 	Add([this] { m_fnScreenshot("selftest_end"); }, 3);
 }
 
