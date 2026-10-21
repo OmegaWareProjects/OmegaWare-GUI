@@ -1,9 +1,7 @@
 # OmegaWare-GUI
 
 A console-styled, immediate-mode GUI and overlay renderer written in C++26 for the
-[OmegaWare Framework](https://github.com/Omega172/OmegaWare-Framework). The look follows
-[omegaware.xyz](https://omegaware.xyz): dark terminal surfaces, a monospace font, `./tabs`,
-`## headers`, `[x]` checkboxes, a blinking block caret and terminal-dot window controls.
+[OmegaWare Framework](https://github.com/Omega172/OmegaWare-Framework).
 
 It is built for in-process overlays in single-player and co-op games: every backend saves and
 restores the pipeline state it touches, and the world layer can depth-test against the game's
