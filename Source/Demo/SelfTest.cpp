@@ -132,10 +132,12 @@ clSelfTest::clSelfTest(std::function<void(const std::string&)> fnScreenshot)
 	Check("hotkey captures next key", [](const stDemoProbe& rProbe) { return rProbe.uAimKey == VK_F5; }, [](const stDemoProbe& rProbe) { return std::to_string(rProbe.uAimKey); });
 
 	auto pPerfBefore = std::make_shared<rect>();
-	Add([pPerfBefore] { *pPerfBefore = FindRect("perf_window").value_or(rect{}); }, 1);
+	Add([] { FocusWindow("perf"); }, 2);
+	Add([pPerfBefore] { *pPerfBefore = FindRect("perf_window").value_or(rect{}); GetInput().AddKeyEvent(VK_SHIFT, true); }, 1);
 	Drag([] { const rect rcPerf = FindRect("perf_window").value_or(rect{}); return vec2{ rcPerf.Center().x, rcPerf.min.y + 16.f }; }, { -150.f, 60.f });
+	Add([] { GetInput().AddKeyEvent(VK_SHIFT, false); }, 1);
 	Check("title bar drag moves window", [pPerfBefore](const stDemoProbe& rProbe) { return Near(rProbe.vecPerfPosition.x, pPerfBefore->min.x - 150.f) && Near(rProbe.vecPerfPosition.y, pPerfBefore->min.y + 60.f); },
-		[](const stDemoProbe& rProbe) { return std::format("{},{}", rProbe.vecPerfPosition.x, rProbe.vecPerfPosition.y); });
+		[pPerfBefore](const stDemoProbe& rProbe) { return std::format("{},{} from {},{}", rProbe.vecPerfPosition.x, rProbe.vecPerfPosition.y, pPerfBefore->min.x, pPerfBefore->min.y); });
 
 	Add([pPerfBefore] { *pPerfBefore = FindRect("perf_window").value_or(rect{}); }, 1);
 	Drag([] { const rect rcPerf = FindRect("perf_window").value_or(rect{}); return rcPerf.max - vec2{ 3.f, 3.f }; }, { 40.f, 30.f });
@@ -151,6 +153,7 @@ clSelfTest::clSelfTest(std::function<void(const std::string&)> fnScreenshot)
 	Add([] {}, 10);
 	Check("yellow control expands a collapsed window", [](const stDemoProbe& rProbe) { return !rProbe.bPerfCollapsed; });
 
+	Add([] { FocusWindow("console"); }, 2);
 	ClickAt([] { const rect rcConsole = FindRect("console_window").value_or(rect{}); return rcConsole.min + vec2{ 16.f, 16.f }; });
 	Check("red control closes window", [](const stDemoProbe& rProbe) { return !rProbe.bShowConsole; });
 
