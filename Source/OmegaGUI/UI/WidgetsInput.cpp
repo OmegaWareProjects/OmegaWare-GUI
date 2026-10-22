@@ -625,6 +625,17 @@ namespace OmegaGUI
 		return rHotkey.bActive != bWasActive;
 	}
 
+	namespace
+	{
+		[[nodiscard]] bool IsOnStack(const void* pAddress)
+		{
+			ULONG_PTR uLow = 0, uHigh = 0;
+			GetCurrentThreadStackLimits(&uLow, &uHigh);
+			const auto uAddress = reinterpret_cast<ULONG_PTR>(pAddress);
+			return uAddress >= uLow && uAddress < uHigh;
+		}
+	}
+
 	bool ColorEdit(std::string_view strLabel, color* pColor, bool bAlpha)
 	{
 		stContext& g = Ctx();
@@ -633,6 +644,11 @@ namespace OmegaGUI
 			return false;
 		const stStyle& rStyle = g.stCurrentStyle;
 		const ID uID = pWindow->GetID(strLabel);
+		if (const auto itRainbow = g.mapRainbows.find(uID); itRainbow != g.mapRainbows.end() && itRainbow->second.bEnabled)
+		{
+			itRainbow->second.pTarget = IsOnStack(pColor) ? nullptr : pColor;
+			*pColor = RainbowColor(itRainbow->second, bAlpha ? pColor->A() : 255);
+		}
 		const ID uPopupID = HashString("#colorpopup", uID);
 		const float flHeight = FrameHeight();
 		rect rcTotal;
@@ -773,6 +789,21 @@ namespace OmegaGUI
 				bHexChanged = true;
 			}
 		}
+		stRainbowState& rRainbow = g.mapRainbows[uID];
+		if (Checkbox("rainbow", &rRainbow.bEnabled))
+		{
+			if (rRainbow.bEnabled)
+			{
+				rRainbow.flSaturation = flS < .05f ? 1.f : flS;
+				rRainbow.flValue = flV < .05f ? 1.f : flV;
+				rRainbow.pTarget = IsOnStack(pColor) ? nullptr : pColor;
+			}
+			else
+				rRainbow.pTarget = nullptr;
+			MarkSettingsDirty();
+		}
+		if (rRainbow.bEnabled && SliderFloat("speed", &rRainbow.flSpeed, .01f, 5.f, "{:.2f}", .05f))
+			MarkSettingsDirty();
 		PopItemWidth();
 
 		if (bChanged && !bHexChanged)
@@ -781,6 +812,11 @@ namespace OmegaGUI
 			*pColor = color::FromHSV(flH, flS, flV, bAlpha ? flA : 1.f);
 		}
 		bChanged |= bHexChanged;
+		if (bChanged && rRainbow.bEnabled)
+		{
+			float flNewH = 0.f;
+			pColor->ToHSV(flNewH, rRainbow.flSaturation, rRainbow.flValue);
+		}
 		if (bChanged)
 			MarkSettingsDirty();
 		EndPopup();
