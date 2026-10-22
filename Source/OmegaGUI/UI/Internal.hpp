@@ -266,6 +266,15 @@ namespace OmegaGUI
 		float flOffsetY = -1.f;
 	};
 
+	struct stRainbowState
+	{
+		bool bEnabled = false;
+		float flSpeed = .25f;
+		float flSaturation = 1.f;
+		float flValue = 1.f;
+		color* pTarget = nullptr;
+	};
+
 	struct stWindowSettings
 	{
 		std::string strName;
@@ -388,6 +397,7 @@ namespace OmegaGUI
 		int iHotkeyCaptureFrame = 0;
 
 		std::unordered_map<ID, stWindowSettings> mapSettings;
+		std::unordered_map<ID, stRainbowState> mapRainbows;
 		bool bSettingsDirty = false;
 		float flSettingsTimer = 0.f;
 		bool bSettingsLoaded = false;
@@ -447,6 +457,8 @@ namespace OmegaGUI
 	void ClosePopupsOverWindow(stWindow* pWindow);
 	void ClosePopupToLevel(std::size_t uLevel);
 	[[nodiscard]] bool IsPopupOpenID(ID uID);
+	[[nodiscard]] color RainbowColor(const stRainbowState& rState, std::uint8_t byAlpha);
+	void UpdateRainbows();
 
 	void UpdateNavigation();
 	void UpdateWindowsInteraction();

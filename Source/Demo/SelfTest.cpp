@@ -199,6 +199,12 @@ clSelfTest::clSelfTest(std::function<void(const std::string&)> fnScreenshot)
 		const auto rcHeader = FindRect("table_header_2");
 		return rcTable && rcHeader && Near(rcHeader->max.x, rcTable->max.x, 1.f) && rcTable->Height() > rcHeader->Height() * 4.f;
 	});
+	Click("visuals_colors");
+	Add([] {}, 5);
+	Click("color_visible", { .5f, .5f });
+	Add([] {}, 40);
+	Add([this] { m_fnScreenshot("selftest_color"); }, 8);
+	Key(VK_ESCAPE);
 #ifdef OMEGAGUI_DEMO_LOCALIZATION
 	Add([] { OmegaLocalization::SetLocale("de"); }, 4);
 	Check("other languages keep the glyphs of their names", [](const stDemoProbe&) {

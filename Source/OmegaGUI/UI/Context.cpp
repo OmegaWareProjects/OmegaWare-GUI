@@ -428,6 +428,7 @@ namespace OmegaGUI
 			return false;
 
 		stWindowSettings* pCurrent = nullptr;
+		stRainbowState* pRainbow = nullptr;
 		std::string strLine;
 		while (std::getline(fileSettings, strLine))
 		{
@@ -438,12 +439,32 @@ namespace OmegaGUI
 				const std::string strName = strLine.substr(9, strLine.size() - 10);
 				pCurrent = &g.mapSettings[HashString(strName)];
 				pCurrent->strName = strName;
+				pRainbow = nullptr;
+				continue;
+			}
+			unsigned int uRainbowID = 0;
+			if (sscanf_s(strLine.c_str(), "[Rainbow][%x]", &uRainbowID) == 1)
+			{
+				pRainbow = &g.mapRainbows[static_cast<ID>(uRainbowID)];
+				pCurrent = nullptr;
+				continue;
+			}
+			float flX = 0.f, flY = 0.f;
+			int iValue = 0;
+			if (pRainbow)
+			{
+				if (sscanf_s(strLine.c_str(), "Enabled=%d", &iValue) == 1)
+					pRainbow->bEnabled = iValue != 0;
+				else if (sscanf_s(strLine.c_str(), "Speed=%f", &flX) == 1)
+					pRainbow->flSpeed = flX;
+				else if (sscanf_s(strLine.c_str(), "Saturation=%f", &flX) == 1)
+					pRainbow->flSaturation = flX;
+				else if (sscanf_s(strLine.c_str(), "Value=%f", &flX) == 1)
+					pRainbow->flValue = flX;
 				continue;
 			}
 			if (!pCurrent)
 				continue;
-			float flX = 0.f, flY = 0.f;
-			int iValue = 0;
 			if (sscanf_s(strLine.c_str(), "Pos=%f,%f", &flX, &flY) == 2)
 			{
 				pCurrent->vecPosition = { flX, flY };
@@ -497,6 +518,12 @@ namespace OmegaGUI
 				fileSettings << std::format("Size={:.0f},{:.0f}\n", rSettings.vecSize.x, rSettings.vecSize.y);
 			fileSettings << "Collapsed=" << (rSettings.bCollapsed ? 1 : 0) << "\n\n";
 		}
+		for (const auto& [uID, rRainbow] : g.mapRainbows)
+		{
+			if (!rRainbow.bEnabled)
+				continue;
+			fileSettings << std::format("[Rainbow][{:08X}]\nEnabled=1\nSpeed={:.3f}\nSaturation={:.3f}\nValue={:.3f}\n\n", uID, rRainbow.flSpeed, rRainbow.flSaturation, rRainbow.flValue);
+		}
 		g.bSettingsDirty = false;
 		return true;
 	}
@@ -509,6 +536,19 @@ namespace OmegaGUI
 		g.flSettingsTimer -= g.flDeltaTime;
 		if (g.flSettingsTimer <= 0.f)
 			SaveSettings(g.stSettings.pathSettings);
+	}
+
+	color RainbowColor(const stRainbowState& rState, std::uint8_t byAlpha)
+	{
+		const double dHue = std::fmod(Ctx().dTime * static_cast<double>(rState.flSpeed), 1.0);
+		return color::FromHSV(static_cast<float>(dHue < 0.0 ? dHue + 1.0 : dHue), rState.flSaturation, rState.flValue, byAlpha / 255.f);
+	}
+
+	void UpdateRainbows()
+	{
+		for (auto& [uID, rState] : Ctx().mapRainbows)
+			if (rState.bEnabled && rState.pTarget)
+				*rState.pTarget = RainbowColor(rState, rState.pTarget->A());
 	}
 
 	void NewFrame()
@@ -541,6 +581,7 @@ namespace OmegaGUI
 		g.iLastTicks = stCounter.QuadPart;
 		g.dTime += g.flDeltaTime;
 		++g.iFrame;
+		UpdateRainbows();
 
 		const HWND hWnd = static_cast<HWND>(g.hWindow);
 		if (hWnd && !g.bDisplaySizeOverride)

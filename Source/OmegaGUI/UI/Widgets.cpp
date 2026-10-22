@@ -181,20 +181,30 @@ namespace OmegaGUI
 
 	void TextUnformatted(std::string_view strText) { TextEx(strText, Style().Get(EColor::Text)); }
 	void TextColored(color col, std::string_view strText) { TextEx(strText, col); }
+	namespace
+	{
+		[[nodiscard]] float HintWrapWidth()
+		{
+			const stWindow* pWindow = CurrentWindow();
+			if (HasFlag(pWindow->eFlags, EWindowFlags::AlwaysAutoResize) || pWindow->iAutoFitFrames > 0)
+				return 0.f;
+			const float flAvailable = GetContentRegionAvail().x;
+			return flAvailable > 40.f ? flAvailable : 0.f;
+		}
+	}
+
 	void TextMuted(std::string_view strText)
 	{
 		if (CurrentWindow()->bSkipItems)
 			return;
-		const float flAvailable = GetContentRegionAvail().x;
-		TextEx(strText, Style().Get(EColor::TextMuted), flAvailable > 40.f ? flAvailable : 0.f);
+		TextEx(strText, Style().Get(EColor::TextMuted), HintWrapWidth());
 	}
 
 	void TextDisabled(std::string_view strText)
 	{
 		if (CurrentWindow()->bSkipItems)
 			return;
-		const float flAvailable = GetContentRegionAvail().x;
-		TextEx(strText, Style().Get(EColor::TextDisabled), flAvailable > 40.f ? flAvailable : 0.f);
+		TextEx(strText, Style().Get(EColor::TextDisabled), HintWrapWidth());
 	}
 
 	void TextWrapped(std::string_view strText)

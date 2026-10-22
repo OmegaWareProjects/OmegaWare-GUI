@@ -337,9 +337,12 @@ namespace
 				TableEntities();
 				EndTabItem();
 			}
-			if (BeginTabItem("colors"))
+			const bool bColors = BeginTabItem("colors");
+			Track("visuals_colors");
+			if (bColors)
 			{
 				ColorEdit("visible", &d.colVisible);
+				Track("color_visible");
 				ColorEdit("occluded", &d.colHidden);
 				ColorEdit("labels", &d.colText, false);
 				EndTabItem();

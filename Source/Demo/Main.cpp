@@ -44,10 +44,16 @@ namespace
 	bool g_bResizePending = false;
 	int g_iWidth = 1600;
 	int g_iHeight = 900;
+	bool g_bSelfTest = false;
+
+	[[nodiscard]] bool IsUserInput(UINT uMessage)
+	{
+		return (uMessage >= WM_MOUSEFIRST && uMessage <= WM_MOUSELAST) || (uMessage >= WM_KEYFIRST && uMessage <= WM_KEYLAST) || uMessage == WM_MOUSELEAVE || uMessage == WM_SETFOCUS || uMessage == WM_KILLFOCUS || uMessage == WM_INPUT;
+	}
 
 	LRESULT CALLBACK WindowProcedure(HWND hWindow, UINT uMessage, WPARAM uWParam, LPARAM iLParam)
 	{
-		if (OmegaGUI::GetCurrentContext() && OmegaGUI::ProcessWin32Message(hWindow, uMessage, uWParam, iLParam))
+		if (OmegaGUI::GetCurrentContext() && !(g_bSelfTest && IsUserInput(uMessage)) && OmegaGUI::ProcessWin32Message(hWindow, uMessage, uWParam, iLParam))
 			return uMessage == WM_SETCURSOR ? TRUE : 0;
 		switch (uMessage)
 		{
@@ -150,6 +156,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int)
 			g_bForceWarp = true;
 	}
 	LocalFree(aArguments);
+	g_bSelfTest = bSelfTest;
 
 	WNDCLASSEXW stClass{ sizeof(WNDCLASSEXW), CS_CLASSDC, WindowProcedure, 0, 0, hInstance, nullptr, LoadCursorW(nullptr, IDC_ARROW), nullptr, nullptr, L"OmegaGUIDemo", nullptr };
 	RegisterClassExW(&stClass);

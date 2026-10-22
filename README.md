@@ -27,7 +27,7 @@ own depth buffer so drawings hide behind walls.
   decimal/hex filters, clipboard, selection), hotkey capture (keyboard, mouse and controller;
   `stHotkey` adds an always on, hold or toggle mode shown as a badge and picked from a
   right-click menu, plus a notify option, with `UpdateHotkey` to drive it), ctrl+click on a
-  slider to type any value, HSV colour picker with a hex field, progress bars, line and histogram plots, collapsing headers, tree nodes,
+  slider to type any value, HSV colour picker with a hex field and a per-picker rainbow mode with adjustable speed (saved with the layout), progress bars, line and histogram plots, collapsing headers, tree nodes,
   columns, sections, groups, alerts, tags, breadcrumbs and key hints.
 - **Tables**: `BeginTable` / `EndTable` with stretch or fixed columns, a header row, sortable
   columns (`TableGetSortSpecs`), borders, striped rows and hovered row highlight.
