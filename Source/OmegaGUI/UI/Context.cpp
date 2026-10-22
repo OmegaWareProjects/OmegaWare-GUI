@@ -847,9 +847,10 @@ namespace OmegaGUI
 				ClosePopupToLevel(i + 1);
 				return;
 			}
+		const vec2 vecMouse = g.clInputState.GetMousePosition();
 		std::size_t uKeep = 0;
 		for (std::size_t i = 0; i < g.aOpenPopups.size(); ++i)
-			if (g.aOpenPopups[i].bModal || g.aOpenPopups[i].uParentWindowID == pWindow->uID)
+			if (g.aOpenPopups[i].bModal || (g.aOpenPopups[i].uParentWindowID == pWindow->uID && g.aOpenPopups[i].rcAnchor.Contains(vecMouse)))
 				uKeep = i + 1;
 		if (uKeep < g.aOpenPopups.size() && !g.aOpenPopups[uKeep].bModal)
 			ClosePopupToLevel(uKeep);

@@ -349,6 +349,7 @@ namespace OmegaGUI
 	void EndPopup();
 	void CloseCurrentPopup();
 	[[nodiscard]] bool IsPopupOpen(std::string_view strID);
+	[[nodiscard]] bool IsAnyPopupOpen();
 
 	bool BeginMenuBar();
 	void EndMenuBar();

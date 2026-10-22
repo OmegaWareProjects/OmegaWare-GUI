@@ -691,6 +691,11 @@ namespace OmegaGUI
 		g.aOpenPopups.push_back(stNew);
 	}
 
+	bool IsAnyPopupOpen()
+	{
+		return !Ctx().aOpenPopups.empty();
+	}
+
 	bool IsPopupOpenID(ID uID)
 	{
 		return std::ranges::any_of(Ctx().aOpenPopups, [&](const stPopup& rPopup) { return rPopup.uID == uID; });

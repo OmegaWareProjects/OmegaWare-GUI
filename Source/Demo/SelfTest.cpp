@@ -204,7 +204,10 @@ clSelfTest::clSelfTest(std::function<void(const std::string&)> fnScreenshot)
 	Click("color_visible", { .5f, .5f });
 	Add([] {}, 40);
 	Add([this] { m_fnScreenshot("selftest_color"); }, 8);
-	Key(VK_ESCAPE);
+	Check("color picker opens", [](const stDemoProbe& rProbe) { return rProbe.bAnyPopupOpen; });
+	ClickAt([] { const rect rcMain = FindRect("main_window").value_or(rect{}); return vec2{ rcMain.min.x + 40.f, rcMain.max.y - 30.f }; });
+	Add([] {}, 3);
+	Check("clicking outside closes the color picker", [](const stDemoProbe& rProbe) { return !rProbe.bAnyPopupOpen; });
 #ifdef OMEGAGUI_DEMO_LOCALIZATION
 	Add([] { OmegaLocalization::SetLocale("de"); }, 4);
 	Check("other languages keep the glyphs of their names", [](const stDemoProbe&) {

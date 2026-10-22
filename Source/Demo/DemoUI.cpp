@@ -755,6 +755,7 @@ void DemoFrame(const stDemoCamera& stCamera)
 	g_stProbe.bShowConsole = d.bShowConsole;
 	g_stProbe.uAimKey = d.stAimKey.uKey;
 	g_stProbe.eAimMode = d.stAimKey.eMode;
+	g_stProbe.bAnyPopupOpen = IsAnyPopupOpen();
 	g_stProbe.bMenuVisible = IsVisible();
 	g_stProbe.mapRects["console_input"] = d.clLog.GetInputRect();
 	g_stProbe.mapRects["console_window"] = d.clLog.GetWindowRect();
