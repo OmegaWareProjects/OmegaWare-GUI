@@ -122,6 +122,7 @@ namespace OmegaGUI
 		bool m_bAlwaysVisible = false;
 		bool m_bSelecting = false;
 		bool m_bHasSelection = false;
+		std::string m_strPendingPaste;
 		stTextPosition m_stAnchor;
 		stTextPosition m_stCaret;
 		std::vector<stVisibleLine> m_aVisible;

@@ -3,6 +3,7 @@
 #include <Windows.h>
 
 #include <array>
+#include <charconv>
 
 namespace OmegaGUI
 {
@@ -85,6 +86,8 @@ namespace OmegaGUI
 					GlobalFree(hMemory);
 			}
 			CloseClipboard();
+			if (!strText.empty())
+				PushToast(EToastKind::Info, "copied to clipboard", 1.5f);
 		}
 
 		[[nodiscard]] bool CharacterAllowed(char32_t uCodepoint, EInputTextFlags eFlags)
@@ -657,12 +660,9 @@ namespace OmegaGUI
 			const float flHover = AnimateBool(uID, bHovered || IsPopupOpenID(uPopupID) || (g.uNavID == uID && g.bNavVisible));
 			if (flLabelWidth > 0.f)
 				RenderText({ rcTotal.min.x, std::floor(rcTotal.Center().y - GetTextLineHeight() * .5f) }, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
-			const rect rcSwatch{ rcControl.min, { rcControl.min.x + flHeight * 1.6f, rcControl.max.y } };
-			DrawChecker(pWindow->drawList, rcSwatch.Expanded(-1.f));
-			pWindow->drawList.AddRectFilled(rcSwatch.min, rcSwatch.max, WithGlobalAlpha(*pColor), rStyle.flRoundingSmall);
-			pWindow->drawList.AddRect(rcSwatch.min, rcSwatch.max, WithGlobalAlpha(rStyle.Get(EColor::Border).Lerp(rStyle.Get(EColor::Accent), flHover)), rStyle.flRoundingSmall);
-			const std::string strHex = bAlpha ? std::format("#{:02X}{:02X}{:02X}{:02X}", pColor->R(), pColor->G(), pColor->B(), pColor->A()) : std::format("#{:02X}{:02X}{:02X}", pColor->R(), pColor->G(), pColor->B());
-			RenderTextClipped({ { rcSwatch.max.x + rStyle.vecItemInnerSpacing.x, rcControl.min.y }, rcControl.max }, strHex, rStyle.Get(EColor::TextMuted).Lerp(rStyle.Get(EColor::Accent), flHover), { 0.f, .5f });
+			DrawChecker(pWindow->drawList, rcControl.Expanded(-1.f));
+			pWindow->drawList.AddRectFilled(rcControl.min, rcControl.max, WithGlobalAlpha(*pColor), rStyle.flRoundingSmall);
+			pWindow->drawList.AddRect(rcControl.min, rcControl.max, WithGlobalAlpha(rStyle.Get(EColor::Border).Lerp(rStyle.Get(EColor::Accent), flHover)), rStyle.flRoundingSmall);
 			RenderNavHighlight(rcTotal, uID);
 		}
 
@@ -757,14 +757,32 @@ namespace OmegaGUI
 		bChanged |= SliderFloat("val", &flV, 0.f, 1.f, "{:.2f}", .02f);
 		if (bAlpha)
 			bChanged |= SliderFloat("alpha", &flA, 0.f, 1.f, "{:.2f}", .02f);
+		std::string strHex = bAlpha ? std::format("{:02X}{:02X}{:02X}{:02X}", pColor->R(), pColor->G(), pColor->B(), pColor->A()) : std::format("{:02X}{:02X}{:02X}", pColor->R(), pColor->G(), pColor->B());
+		bool bHexChanged = false;
+		if (InputText("hex", &strHex, bAlpha ? "RRGGBBAA" : "RRGGBB", EInputTextFlags::CharsHex | EInputTextFlags::NoOnScreenKeyboard) && (strHex.size() == 6 || (bAlpha && strHex.size() == 8)))
+		{
+			std::uint32_t uValue = 0;
+			if (std::from_chars(strHex.data(), strHex.data() + strHex.size(), uValue, 16).ec == std::errc())
+			{
+				if (strHex.size() == 6)
+					*pColor = color(static_cast<std::uint8_t>(uValue >> 16), static_cast<std::uint8_t>(uValue >> 8), static_cast<std::uint8_t>(uValue), bAlpha ? pColor->A() : 255);
+				else
+					*pColor = color(static_cast<std::uint8_t>(uValue >> 24), static_cast<std::uint8_t>(uValue >> 16), static_cast<std::uint8_t>(uValue >> 8), static_cast<std::uint8_t>(uValue));
+				float flNewS = 0.f, flNewV = 0.f;
+				pColor->ToHSV(rStoredHue, flNewS, flNewV);
+				bHexChanged = true;
+			}
+		}
 		PopItemWidth();
 
-		if (bChanged)
+		if (bChanged && !bHexChanged)
 		{
 			rStoredHue = flH;
 			*pColor = color::FromHSV(flH, flS, flV, bAlpha ? flA : 1.f);
-			MarkSettingsDirty();
 		}
+		bChanged |= bHexChanged;
+		if (bChanged)
+			MarkSettingsDirty();
 		EndPopup();
 		return bChanged;
 	}
@@ -909,5 +927,10 @@ namespace OmegaGUI
 	void SetClipboardText(std::string_view strText)
 	{
 		SetClipboardUTF8(strText);
+	}
+
+	std::string GetClipboardText()
+	{
+		return GetClipboardUTF8();
 	}
 }

@@ -75,8 +75,36 @@ namespace OmegaGUI
 			float flLabelWidth = 0.f;
 			const rect rcControl = LabeledControlRect(strLabel, flHeight, rcTotal, flLabelWidth);
 			ItemSize(rcTotal.Size(), rStyle.vecFramePadding.y);
-			if (!ItemAdd(rcTotal, uID, EItemFlags::NavConsumesHorizontal))
+			const ID uInputID = HashString("#input", uID);
+			bool bEditing = g.stText.uID == uInputID;
+			if (!ItemAdd(rcTotal, uID, EItemFlags::NavConsumesHorizontal) && !bEditing)
 				return false;
+
+			const bool bStartEditing = !bEditing && g.clInputState.IsCtrlDown() && g.clInputState.IsMouseClicked(EMouseButton::Left) && ItemHoverable(rcControl, uID);
+			if (bEditing || bStartEditing)
+			{
+				std::string strText = bInteger ? std::format("{}", static_cast<long long>(rValue)) : std::format("{:g}", rValue);
+				bool bTyped = false;
+				pWindow->stLast.uID = uInputID;
+				if (InputTextFrame(uInputID, rcControl, strText, {}, EInputTextFlags::CharsDecimal | EInputTextFlags::NoOnScreenKeyboard, bStartEditing))
+				{
+					double dParsed = 0.0;
+					if (std::from_chars(strText.data(), strText.data() + strText.size(), dParsed).ec == std::errc())
+					{
+						dParsed = bInteger ? std::round(dParsed) : dParsed;
+						bTyped = dParsed != rValue;
+						rValue = dParsed;
+					}
+				}
+				pWindow->stLast.uID = uID;
+				pWindow->stLast.rcItem = rcTotal;
+				if (flLabelWidth > 0.f)
+					RenderText({ rcTotal.min.x, LabelY(rcTotal) }, strLabel, rStyle.Get(EColor::TextHeading));
+				pWindow->stLast.bEdited = bTyped;
+				if (bTyped)
+					MarkSettingsDirty();
+				return bTyped;
+			}
 
 			const float flValueWidth = std::max(MeasureText(FormatValue(strFormat, dMin, bInteger)).x, MeasureText(FormatValue(strFormat, dMax, bInteger)).x) + 4.f;
 			const float flCenterY = std::floor(rcControl.Center().y);
@@ -153,8 +181,21 @@ namespace OmegaGUI
 
 	void TextUnformatted(std::string_view strText) { TextEx(strText, Style().Get(EColor::Text)); }
 	void TextColored(color col, std::string_view strText) { TextEx(strText, col); }
-	void TextMuted(std::string_view strText) { TextEx(strText, Style().Get(EColor::TextMuted)); }
-	void TextDisabled(std::string_view strText) { TextEx(strText, Style().Get(EColor::TextDisabled)); }
+	void TextMuted(std::string_view strText)
+	{
+		if (CurrentWindow()->bSkipItems)
+			return;
+		const float flAvailable = GetContentRegionAvail().x;
+		TextEx(strText, Style().Get(EColor::TextMuted), flAvailable > 40.f ? flAvailable : 0.f);
+	}
+
+	void TextDisabled(std::string_view strText)
+	{
+		if (CurrentWindow()->bSkipItems)
+			return;
+		const float flAvailable = GetContentRegionAvail().x;
+		TextEx(strText, Style().Get(EColor::TextDisabled), flAvailable > 40.f ? flAvailable : 0.f);
+	}
 
 	void TextWrapped(std::string_view strText)
 	{

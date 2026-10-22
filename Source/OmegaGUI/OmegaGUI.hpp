@@ -239,6 +239,7 @@ namespace OmegaGUI
 	[[nodiscard]] float GetScrollMaxY();
 	void SetScrollY(float flScroll);
 	void SetClipboardText(std::string_view strText);
+	[[nodiscard]] std::string GetClipboardText();
 	void SetScrollHereY(float flRatio = .5f);
 
 	void SameLine(float flOffsetFromStart = 0.f, float flSpacing = -1.f);

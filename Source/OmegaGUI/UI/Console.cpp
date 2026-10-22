@@ -655,6 +655,20 @@ namespace OmegaGUI
 		}
 		else if (m_bSelecting && !bHeld)
 			m_bSelecting = false;
+		if (bHovered && rInput.IsMouseClicked(EMouseButton::Right))
+		{
+			if (m_bHasSelection)
+			{
+				SetClipboardText(GetText(true));
+				m_bHasSelection = false;
+			}
+			else
+			{
+				std::string strPaste = GetClipboardText();
+				std::erase_if(strPaste, [](char chLetter) { return chLetter == 0x0D || chLetter == 0x0A; });
+				m_strPendingPaste += strPaste;
+			}
+		}
 
 		if (m_bScrollToBottom)
 		{
@@ -691,6 +705,12 @@ namespace OmegaGUI
 		SetNextItemWidth(-1.f);
 		const ID uInputID = GetID("##input");
 		const bool bSubmitted = InputText("##input", &m_strInput, "type 'help', tab completes", EInputTextFlags::EnterReturnsTrue | EInputTextFlags::KeepFocusOnEnter);
+		if (!m_strPendingPaste.empty())
+		{
+			m_strInput += m_strPendingPaste;
+			m_strPendingPaste.clear();
+			SetInputTextValue(GetItemID(), m_strInput);
+		}
 		m_rcInput = { GetItemRectMin(), GetItemRectMax() };
 		if (bSubmitted)
 		{
