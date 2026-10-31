@@ -134,7 +134,6 @@ namespace OmegaGUI
 		rBar.aTabs.push_back(uID);
 		if (rBar.uSelected == 0)
 			rBar.uSelected = uID;
-		const bool bSelected = rBar.uSelected == uID;
 		const bool bVertical = HasFlag(rBar.eFlags, ETabBarFlags::Vertical);
 
 		const std::string_view strPrefix = rStyle.bConsolePrefixes ? "./" : "";
@@ -198,7 +197,7 @@ namespace OmegaGUI
 		const float flTextY = std::floor(rcTab.Center().y - vecText.y * .5f);
 		rList.PushClipRect(rcTab);
 		rList.AddText({ flTextX, flTextY }, WithGlobalAlpha(rStyle.Get(EColor::TextDisabled)), strPrefix);
-		rList.AddText({ flTextX + flPrefix, flTextY }, WithGlobalAlpha(colText), VisibleLabel(strLabel));
+		rList.AddText({ flTextX + flPrefix, flTextY }, WithGlobalAlpha(colText), EllipsizeText(VisibleLabel(strLabel), std::max(rcTab.max.x - (flTextX + flPrefix) - flClose - rStyle.vecFramePadding.x, 10.f)));
 		if (pOpen && (bHovered || bCloseHovered || bNowSelected))
 			rList.AddText({ rcClose.min.x + 3.f, flTextY }, WithGlobalAlpha(bCloseHovered ? rStyle.Get(EColor::Danger) : rStyle.Get(EColor::TextDisabled)), "x");
 		rList.PopClipRect();
@@ -244,7 +243,7 @@ namespace OmegaGUI
 		const vec2 vecText{ rBar.vecBarCursor.x + rStyle.vecFramePadding.x + 4.f, rBar.vecBarCursor.y + flGap };
 		const std::string_view strPrefix = rStyle.bConsolePrefixes ? "## " : "";
 		pWindow->drawList.AddText(vecText, WithGlobalAlpha(rStyle.Get(EColor::TextDisabled)), strPrefix);
-		pWindow->drawList.AddText(vecText + vec2{ MeasureText(strPrefix).x, 0.f }, WithGlobalAlpha(rStyle.Get(EColor::TextMuted)), VisibleLabel(strLabel));
+		pWindow->drawList.AddText(vecText + vec2{ MeasureText(strPrefix).x, 0.f }, WithGlobalAlpha(rStyle.Get(EColor::TextMuted)), EllipsizeText(VisibleLabel(strLabel), std::max(rBar.rcBar.max.x - vecText.x - MeasureText(strPrefix).x - rStyle.vecFramePadding.x, 10.f)));
 		rBar.vecBarCursor.y += flGap + GetTextLineHeight() + std::round(rStyle.vecItemSpacing.y * .5f);
 	}
 

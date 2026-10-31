@@ -315,7 +315,7 @@ namespace OmegaGUI
 			const bool bSorted = bSortable && rTable.stSort.iColumn == i;
 			const color colText = bSorted ? rStyle.Get(EColor::Accent) : rStyle.Get(EColor::TextHeading).Lerp(rStyle.Get(EColor::Accent), flHover);
 			const float flArrowSpace = bSorted ? FrameHeight() * .6f : 0.f;
-			RenderTextClipped({ { rcHeader.min.x + rTable.vecCellPadding.x, rcHeader.min.y }, { rcHeader.max.x - rTable.vecCellPadding.x - flArrowSpace, rcHeader.max.y } }, rColumn.strLabel, colText, { 0.f, .5f });
+			RenderTextEllipsis({ { rcHeader.min.x + rTable.vecCellPadding.x, rcHeader.min.y }, { rcHeader.max.x - rTable.vecCellPadding.x - flArrowSpace, rcHeader.max.y } }, rColumn.strLabel, colText, { 0.f, .5f });
 			if (bSorted)
 			{
 				const float flArrow = std::floor(FrameHeight() * .14f);

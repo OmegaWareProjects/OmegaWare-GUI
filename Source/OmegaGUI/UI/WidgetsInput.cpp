@@ -441,7 +441,7 @@ namespace OmegaGUI
 		if (!ItemAdd(rcTotal, uID) && g.stText.uID != uID)
 			return false;
 		if (flLabelWidth > 0.f)
-			RenderText({ rcTotal.min.x, std::floor(rcTotal.Center().y - GetTextLineHeight() * .5f) }, strLabel, rStyle.Get(EColor::Text));
+			RenderLabel(rcTotal, FrameHeight(), flLabelWidth, strLabel, rStyle.Get(EColor::Text));
 		const bool bResult = InputTextFrame(uID, rcControl, *pText, strHint, eFlags, g.uNavActivateID == uID && g.pNavWindow == pWindow);
 		pWindow->stLast.uID = uID;
 		pWindow->stLast.rcItem = rcTotal;
@@ -527,7 +527,7 @@ namespace OmegaGUI
 
 			const float flHover = AnimateBool(uID, bHovered || bCapturing || (g.uNavID == uID && g.bNavVisible));
 			if (flLabelWidth > 0.f)
-				RenderText({ rcTotal.min.x, std::floor(rcTotal.Center().y - GetTextLineHeight() * .5f) }, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
+				RenderLabel(rcTotal, FrameHeight(), flLabelWidth, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
 			RenderFrame(rcControl, rStyle.Get(EColor::Background), true, bCapturing ? rStyle.Get(EColor::Accent) : rStyle.Get(EColor::Border).Lerp(rStyle.Get(EColor::BorderHover), flHover), rStyle.flRoundingSmall);
 			if (g.uHotkeyCapture == uID)
 			{
@@ -675,7 +675,7 @@ namespace OmegaGUI
 		{
 			const float flHover = AnimateBool(uID, bHovered || IsPopupOpenID(uPopupID) || (g.uNavID == uID && g.bNavVisible));
 			if (flLabelWidth > 0.f)
-				RenderText({ rcTotal.min.x, std::floor(rcTotal.Center().y - GetTextLineHeight() * .5f) }, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
+				RenderLabel(rcTotal, flHeight, flLabelWidth, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
 			DrawChecker(pWindow->drawList, rcControl.Expanded(-1.f));
 			pWindow->drawList.AddRectFilled(rcControl.min, rcControl.max, WithGlobalAlpha(*pColor), rStyle.flRoundingSmall);
 			pWindow->drawList.AddRect(rcControl.min, rcControl.max, WithGlobalAlpha(rStyle.Get(EColor::Border).Lerp(rStyle.Get(EColor::Accent), flHover)), rStyle.flRoundingSmall);

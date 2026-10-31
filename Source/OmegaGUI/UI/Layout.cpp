@@ -42,6 +42,75 @@ namespace OmegaGUI
 			pWindow->drawList.PopClipRect();
 	}
 
+	float AutoWrapWidth()
+	{
+		const stWindow* pWindow = CurrentWindow();
+		if (HasFlag(pWindow->eFlags, EWindowFlags::AlwaysAutoResize) || pWindow->iAutoFitFrames > 0)
+			return 0.f;
+		const float flAvailable = GetContentRegionAvail().x;
+		return flAvailable > 40.f ? flAvailable : 0.f;
+	}
+
+	std::string EllipsizeText(std::string_view strText, float flWidth)
+	{
+		if (MeasureText(strText).x <= flWidth)
+			return std::string(strText);
+		const float flDots = MeasureText("...").x;
+		std::size_t uLength = strText.size();
+		while (uLength > 0)
+		{
+			--uLength;
+			while (uLength > 0 && (static_cast<unsigned char>(strText[uLength]) & 0xC0) == 0x80)
+				--uLength;
+			if (MeasureText(strText.substr(0, uLength)).x + flDots <= flWidth)
+				break;
+		}
+		return std::string(strText.substr(0, uLength)) + "...";
+	}
+
+	void RenderTextWrapped(const vec2& vecPosition, std::string_view strText, color col, float flWrapWidth)
+	{
+		CurrentWindow()->drawList.AddText(vecPosition, WithGlobalAlpha(col), VisibleLabel(strText), 0.f, flWrapWidth);
+	}
+
+	void RenderTextWrappedAligned(const rect& rcBounds, std::string_view strText, color col, float flAlignX, float flWrapWidth)
+	{
+		stContext& g = Ctx();
+		stWindow* pWindow = CurrentWindow();
+		const clFont* pFont = g.stShared.pFont;
+		std::string_view strRest = VisibleLabel(strText);
+		const float flLine = GetTextLineHeight();
+		const float flTotal = MeasureText(strRest, flWrapWidth).y;
+		float flY = rcBounds.min.y + std::max(0.f, std::floor((rcBounds.Height() - flTotal) * .5f));
+		pWindow->drawList.PushClipRect(rcBounds);
+		while (!strRest.empty())
+		{
+			std::size_t uBreak = pFont ? pFont->FindWrapPosition(strRest, g.stShared.flFontSize, flWrapWidth) : strRest.size();
+			if (uBreak > strRest.size())
+				uBreak = strRest.size();
+			const std::string_view strLine = strRest.substr(0, uBreak);
+			const float flX = rcBounds.min.x + std::max(0.f, (rcBounds.Width() - MeasureText(strLine).x) * flAlignX);
+			pWindow->drawList.AddText({ std::floor(flX), flY }, WithGlobalAlpha(col), strLine);
+			flY += flLine;
+			strRest.remove_prefix(uBreak);
+			while (!strRest.empty() && (strRest.front() == ' ' || strRest.front() == '\n'))
+				strRest.remove_prefix(1);
+		}
+		pWindow->drawList.PopClipRect();
+	}
+
+	void RenderTextEllipsis(const rect& rcBounds, std::string_view strText, color col, const vec2& vecAlign)
+	{
+		const std::string strShown = EllipsizeText(VisibleLabel(strText), rcBounds.Width());
+		RenderTextClipped(rcBounds, strShown, col, vecAlign);
+	}
+
+	void RenderLabel(const rect& rcTotal, float flControlHeight, float flLabelWidth, std::string_view strLabel, color col)
+	{
+		const float flY = rcTotal.min.y + std::floor((flControlHeight - GetTextLineHeight()) * .5f);
+		RenderTextWrapped({ rcTotal.min.x, flY }, strLabel, col, flLabelWidth + 1.f);
+	}
+
 	void RenderFrame(const rect& rcFrame, color colFill, bool bBorder, color colBorder, float flRounding)
 	{
 		clDrawList& rList = CurrentWindow()->drawList;
@@ -365,13 +434,13 @@ namespace OmegaGUI
 		Indent(flPadding);
 		BeginGroup();
 
-		const std::string_view strVisible = VisibleLabel(strLabel);
-		const float flLabelWidth = MeasureText(strVisible).x;
 		const float flLabelX = vecStart.x + flPadding;
+		const std::string strShown = EllipsizeText(VisibleLabel(strLabel), std::max(flRight - flLabelX - 12.f, 20.f));
+		const float flLabelWidth = MeasureText(strShown).x;
 		const color colBorder = WithGlobalAlpha(rStyle.Get(EColor::Border));
 		pWindow->drawList.AddRectFilled({ vecStart.x, flTop }, { flLabelX - 6.f, flTop + 1.f }, colBorder);
 		pWindow->drawList.AddRectFilled({ std::min(flLabelX + flLabelWidth + 6.f, flRight), flTop }, { flRight, flTop + 1.f }, colBorder);
-		pWindow->drawList.AddText({ flLabelX, vecStart.y }, WithGlobalAlpha(rStyle.Get(EColor::TextHeading)), strVisible);
+		pWindow->drawList.AddText({ flLabelX, vecStart.y }, WithGlobalAlpha(rStyle.Get(EColor::TextHeading)), strShown);
 		return true;
 	}
 
@@ -488,11 +557,30 @@ namespace OmegaGUI
 		stRegion& rRegion = CurrentWindow()->Region();
 		const std::string_view strVisible = VisibleLabel(strLabel);
 		const float flAvailable = GetContentRegionAvail().x;
-		flLabelWidth = strVisible.empty() ? 0.f : MeasureText(strVisible).x;
-		const float flControlWidth = strVisible.empty() ? CalcItemWidthFull(flAvailable) : std::min(CalcItemWidth(), std::max(flAvailable - flLabelWidth - Style().vecItemInnerSpacing.x * 2.f, std::min(60.f, flAvailable)));
-		const float flTotalWidth = strVisible.empty() ? flControlWidth : std::max(flAvailable, flLabelWidth + Style().vecItemInnerSpacing.x * 2.f + flControlWidth);
-		rcTotal = { rRegion.vecCursor, rRegion.vecCursor + vec2{ flTotalWidth, flHeight } };
-		return { { rcTotal.max.x - flControlWidth, rcTotal.min.y }, rcTotal.max };
+		const float flSpacing = Style().vecItemInnerSpacing.x * 2.f;
+		float flControlWidth = 0.f;
+		float flTotalHeight = flHeight;
+		bool bWrapped = false;
+		flLabelWidth = 0.f;
+		if (strVisible.empty())
+			flControlWidth = CalcItemWidthFull(flAvailable);
+		else
+		{
+			const float flNatural = MeasureText(strVisible).x;
+			const float flFloor = std::min(std::max(60.f, flAvailable * .35f), flAvailable);
+			flControlWidth = std::min(CalcItemWidth(), std::max(flAvailable - flNatural - flSpacing, flFloor));
+			flLabelWidth = flNatural;
+			if (AutoWrapWidth() > 0.f && flNatural + flSpacing + flControlWidth > flAvailable)
+			{
+				bWrapped = true;
+				flLabelWidth = std::max(flAvailable - flControlWidth - flSpacing, 20.f);
+				const float flOffset = std::max(0.f, std::floor((flHeight - GetTextLineHeight()) * .5f));
+				flTotalHeight = std::max(flHeight, flOffset + MeasureText(strVisible, flLabelWidth + 1.f).y);
+			}
+		}
+		const float flTotalWidth = strVisible.empty() ? flControlWidth : (bWrapped ? flAvailable : std::max(flAvailable, flLabelWidth + flSpacing + flControlWidth));
+		rcTotal = { rRegion.vecCursor, rRegion.vecCursor + vec2{ flTotalWidth, flTotalHeight } };
+		return { { rcTotal.max.x - flControlWidth, rcTotal.min.y }, { rcTotal.max.x, rcTotal.min.y + flHeight } };
 	}
 
 	float CalcItemWidthFull(float flAvailable)

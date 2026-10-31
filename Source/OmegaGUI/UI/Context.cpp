@@ -902,7 +902,7 @@ namespace OmegaGUI
 			return;
 		}
 
-		if (bGamepad && (rInput.IsGamepadPressed(EGamepadButton::LeftTrigger) || rInput.IsGamepadPressed(EGamepadButton::RightTrigger)) ||
+		if ((bGamepad && (rInput.IsGamepadPressed(EGamepadButton::LeftTrigger) || rInput.IsGamepadPressed(EGamepadButton::RightTrigger))) ||
 			(bKeyboard && rInput.IsCtrlDown() && rInput.IsKeyPressed(VK_TAB)))
 		{
 			const bool bBackward = rInput.IsGamepadPressed(EGamepadButton::LeftTrigger) || rInput.IsShiftDown();

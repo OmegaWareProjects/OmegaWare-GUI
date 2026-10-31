@@ -47,14 +47,16 @@ namespace OmegaGUI
 			stRegion& rRegion = pWindow->Region();
 			const vec2 vecPosition{ rRegion.vecCursor.x, rRegion.vecCursor.y + rRegion.flTextOffset };
 			const float flPrefix = Style().bConsolePrefixes ? MeasureText(strPrefix).x : 0.f;
-			const vec2 vecText = MeasureText(strText);
+			const float flWrap = AutoWrapWidth();
+			const float flTextWrap = flWrap > 0.f ? std::max(flWrap - flPrefix, 20.f) : 0.f;
+			const vec2 vecText = MeasureText(strText, flTextWrap);
 			const vec2 vecSize{ flPrefix + vecText.x, vecText.y };
 			ItemSize(vecSize);
 			if (!ItemAdd({ vecPosition, vecPosition + vecSize }, 0))
 				return;
 			if (flPrefix > 0.f)
 				pWindow->drawList.AddText(vecPosition, WithGlobalAlpha(colPrefix), strPrefix);
-			pWindow->drawList.AddText(vecPosition + vec2{ flPrefix, 0.f }, WithGlobalAlpha(colText), strText);
+			pWindow->drawList.AddText(vecPosition + vec2{ flPrefix, 0.f }, WithGlobalAlpha(colText), strText, 0.f, flTextWrap);
 		}
 
 		[[nodiscard]] float LabelY(const rect& rcFrame)
@@ -99,7 +101,7 @@ namespace OmegaGUI
 				pWindow->stLast.uID = uID;
 				pWindow->stLast.rcItem = rcTotal;
 				if (flLabelWidth > 0.f)
-					RenderText({ rcTotal.min.x, LabelY(rcTotal) }, strLabel, rStyle.Get(EColor::TextHeading));
+					RenderLabel(rcTotal, flHeight, flLabelWidth, strLabel, rStyle.Get(EColor::TextHeading));
 				pWindow->stLast.bEdited = bTyped;
 				if (bTyped)
 					MarkSettingsDirty();
@@ -148,7 +150,7 @@ namespace OmegaGUI
 			const float flKnobX = Lerp(rcTrack.min.x, rcTrack.max.x, Animate(HashString("#knob", uID), static_cast<float>(dFraction), 30.f));
 
 			if (flLabelWidth > 0.f)
-				RenderText({ rcTotal.min.x, LabelY(rcTotal) }, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
+				RenderLabel(rcTotal, flHeight, flLabelWidth, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
 			rList.AddRectFilled(rcTrack.min, rcTrack.max, WithGlobalAlpha(rStyle.Get(EColor::Background)), rStyle.flSliderHeight * .5f);
 			rList.AddRect(rcTrack.min, rcTrack.max, WithGlobalAlpha(rStyle.Get(EColor::Border).Lerp(rStyle.Get(EColor::BorderHover), flHover)), rStyle.flSliderHeight * .5f);
 			rList.AddRectFilled(rcTrack.min, { flKnobX, rcTrack.max.y }, WithGlobalAlpha(rStyle.Get(EColor::Accent)), rStyle.flSliderHeight * .5f);
@@ -179,17 +181,13 @@ namespace OmegaGUI
 		}
 	}
 
-	void TextUnformatted(std::string_view strText) { TextEx(strText, Style().Get(EColor::Text)); }
-	void TextColored(color col, std::string_view strText) { TextEx(strText, col); }
+	void TextUnformatted(std::string_view strText) { TextEx(strText, Style().Get(EColor::Text), AutoWrapWidth()); }
+	void TextColored(color col, std::string_view strText) { TextEx(strText, col, AutoWrapWidth()); }
 	namespace
 	{
 		[[nodiscard]] float HintWrapWidth()
 		{
-			const stWindow* pWindow = CurrentWindow();
-			if (HasFlag(pWindow->eFlags, EWindowFlags::AlwaysAutoResize) || pWindow->iAutoFitFrames > 0)
-				return 0.f;
-			const float flAvailable = GetContentRegionAvail().x;
-			return flAvailable > 40.f ? flAvailable : 0.f;
+			return AutoWrapWidth();
 		}
 	}
 
@@ -225,8 +223,8 @@ namespace OmegaGUI
 		ItemSize(rcTotal.Size());
 		if (!ItemAdd(rcTotal, 0))
 			return;
-		RenderText(rcTotal.min, strLabel, Style().Get(EColor::TextMuted));
-		RenderText(rcControl.min, strValue, Style().Get(EColor::Text));
+		RenderLabel(rcTotal, GetTextLineHeight(), flLabelWidth, strLabel, Style().Get(EColor::TextMuted));
+		RenderTextEllipsis(rcControl, strValue, Style().Get(EColor::Text));
 	}
 
 	void BulletText(std::string_view strText) { PrefixedText("- ", Style().Get(EColor::TextDisabled), strText, Style().Get(EColor::Text)); }
@@ -472,11 +470,24 @@ namespace OmegaGUI
 			return false;
 		const stStyle& rStyle = g.stCurrentStyle;
 		const ID uID = pWindow->GetID(strLabel);
-		const vec2 vecText = MeasureText(VisibleLabel(strLabel));
-		stRegion& rRegion = pWindow->Region();
-		vec2 vecFrame{ vecSize.x > 0.f ? vecSize.x : vecText.x + rStyle.vecFramePadding.x * 2.f + 8.f, vecSize.y > 0.f ? vecSize.y : FrameHeight() };
-		if (vecSize.x < 0.f)
-			vecFrame.x = std::max(GetContentRegionAvail().x + vecSize.x, 8.f);
+		const std::string_view strVisible = VisibleLabel(strLabel);
+			const vec2 vecText = MeasureText(strVisible);
+			const float flPadding = rStyle.vecFramePadding.x * 2.f;
+			const float flAvailable = GetContentRegionAvail().x;
+			const bool bFits = AutoWrapWidth() > 0.f;
+			stRegion& rRegion = pWindow->Region();
+			const bool bCanWrap = bFits && rRegion.flCurrLineHeight <= 0.f && vecSize.y <= 0.f;
+			vec2 vecFrame{ vecSize.x > 0.f ? vecSize.x : vecText.x + flPadding + 8.f, vecSize.y > 0.f ? vecSize.y : FrameHeight() };
+			if (vecSize.x < 0.f)
+				vecFrame.x = std::max(flAvailable + vecSize.x, 8.f);
+			else if (vecSize.x == 0.f && bFits && vecFrame.x > flAvailable)
+				vecFrame.x = std::max(flAvailable, 8.f);
+			float flWrapWidth = 0.f;
+			if (bCanWrap && vecText.x + flPadding > vecFrame.x && vecFrame.x - flPadding > 20.f)
+			{
+				flWrapWidth = vecFrame.x - flPadding + 1.f;
+				vecFrame.y = std::max(vecFrame.y, MeasureText(strVisible, flWrapWidth).y + rStyle.vecFramePadding.y * 2.f);
+			}
 		const float flLineHeight = std::max(vecFrame.y, FrameHeight());
 		const vec2 vecOrigin{ rRegion.vecCursor.x, rRegion.vecCursor.y + std::floor((flLineHeight - vecFrame.y) * .5f) };
 		const rect rcFrame{ vecOrigin, vecOrigin + vecFrame.Floor() };
@@ -524,7 +535,10 @@ namespace OmegaGUI
 		rList.AddRectFilled(rcFrame.min, rcFrame.max, WithGlobalAlpha(colFill), flRounding);
 		if (colBorder.A())
 			rList.AddRect(rcFrame.min, rcFrame.max, WithGlobalAlpha(colBorder), flRounding);
-		RenderTextClipped(rcFrame, strLabel, colText, { .5f, .5f });
+		if (flWrapWidth > 0.f)
+			RenderTextWrappedAligned(rcFrame, strLabel, colText, .5f, flWrapWidth);
+		else
+			RenderTextEllipsis(rcFrame, strLabel, colText, { .5f, .5f });
 		RenderNavHighlight(rcFrame, uID, flRounding);
 		return bPressed;
 	}
@@ -532,7 +546,12 @@ namespace OmegaGUI
 	bool SmallButton(std::string_view strLabel, EButtonStyle eStyle)
 	{
 		const stStyle& rStyle = Style();
-		return Button(strLabel, { MeasureText(VisibleLabel(strLabel)).x + rStyle.vecFramePadding.x * 1.4f, std::floor(FrameHeight() * .8f) }, eStyle);
+		const float flWidth = MeasureText(VisibleLabel(strLabel)).x + rStyle.vecFramePadding.x * 1.4f;
+		const float flAvailable = GetContentRegionAvail().x;
+		const float flHeight = std::floor(FrameHeight() * .8f);
+		if (AutoWrapWidth() > 0.f && flWidth > flAvailable)
+			return Button(strLabel, { std::max(flAvailable, 8.f), CurrentWindow()->Region().flCurrLineHeight > 0.f ? flHeight : 0.f }, eStyle);
+		return Button(strLabel, { flWidth, flHeight }, eStyle);
 	}
 
 	bool InvisibleButton(std::string_view strID, const vec2& vecSize)
@@ -589,9 +608,18 @@ namespace OmegaGUI
 		const ID uID = pWindow->GetID(strLabel);
 		stRegion& rRegion = pWindow->Region();
 		const float flGlyph = MeasureText("[x]").x;
-		const vec2 vecLabel = MeasureText(VisibleLabel(strLabel));
+		const std::string_view strVisible = VisibleLabel(strLabel);
 		const float flHeight = FrameHeight();
-		const rect rcTotal{ rRegion.vecCursor, rRegion.vecCursor + vec2{ flGlyph + (vecLabel.x > 0.f ? rStyle.vecItemInnerSpacing.x + vecLabel.x : 0.f), flHeight } };
+		const float flOffset = std::floor((flHeight - GetTextLineHeight()) * .5f);
+		const float flLabelRoom = std::max(GetContentRegionAvail().x - flGlyph - rStyle.vecItemInnerSpacing.x, 20.f);
+		vec2 vecLabel = MeasureText(strVisible);
+		float flLabelWrap = 0.f;
+		if (vecLabel.x > flLabelRoom && AutoWrapWidth() > 0.f)
+		{
+			flLabelWrap = flLabelRoom + 1.f;
+			vecLabel = MeasureText(strVisible, flLabelWrap);
+		}
+		const rect rcTotal{ rRegion.vecCursor, rRegion.vecCursor + vec2{ flGlyph + (vecLabel.x > 0.f ? rStyle.vecItemInnerSpacing.x + vecLabel.x : 0.f), std::max(flHeight, flOffset + vecLabel.y) } };
 		ItemSize(rcTotal.Size(), rStyle.vecFramePadding.y);
 		if (!ItemAdd(rcTotal, uID))
 			return false;
@@ -606,10 +634,10 @@ namespace OmegaGUI
 		}
 		const float flHover = AnimateBool(uID, bHovered || (g.uNavID == uID && g.bNavVisible));
 		const float flMark = AnimateBool(HashString("#mark", uID), *pValue, 22.f);
-		const float flY = LabelY(rcTotal);
+		const float flY = flLabelWrap > 0.f ? rcTotal.min.y + flOffset : LabelY(rcTotal);
 		DrawCheckGlyph({ rcTotal.min.x, flY }, "[", "x", "]", flMark, rStyle.Get(EColor::TextDisabled).Lerp(rStyle.Get(EColor::Accent), flHover * .6f), rStyle.Get(EColor::Accent));
 		if (vecLabel.x > 0.f)
-			RenderText({ rcTotal.min.x + flGlyph + rStyle.vecItemInnerSpacing.x, flY }, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover).Lerp(rStyle.Get(EColor::Accent), flHover * .35f));
+			RenderTextWrapped({ rcTotal.min.x + flGlyph + rStyle.vecItemInnerSpacing.x, flY }, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover).Lerp(rStyle.Get(EColor::Accent), flHover * .35f), flLabelWrap);
 		RenderNavHighlight(rcTotal, uID);
 		return bPressed;
 	}
@@ -628,9 +656,18 @@ namespace OmegaGUI
 		const float flTrackWidth = std::floor(flTrackHeight * 1.9f);
 		const std::string_view strVisible = VisibleLabel(strLabel);
 		const float flAvailable = GetContentRegionAvail().x;
-		const float flLabelWidth = MeasureText(strVisible).x;
-		const float flTotal = strVisible.empty() ? flTrackWidth : std::max(flAvailable, flLabelWidth + rStyle.vecItemInnerSpacing.x + flTrackWidth);
-		const rect rcTotal{ rRegion.vecCursor, rRegion.vecCursor + vec2{ flTotal, flHeight } };
+		float flLabelWidth = MeasureText(strVisible).x;
+		float flTotalHeight = flHeight;
+		bool bWrapped = false;
+		const float flLabelRoom = flAvailable - flTrackWidth - rStyle.vecItemInnerSpacing.x;
+		if (!strVisible.empty() && AutoWrapWidth() > 0.f && flLabelWidth > flLabelRoom)
+		{
+			bWrapped = true;
+			flLabelWidth = std::max(flLabelRoom, 20.f);
+			flTotalHeight = std::max(flHeight, std::floor((flHeight - GetTextLineHeight()) * .5f) + MeasureText(strVisible, flLabelWidth + 1.f).y);
+		}
+		const float flTotal = strVisible.empty() ? flTrackWidth : (bWrapped ? flAvailable : std::max(flAvailable, flLabelWidth + rStyle.vecItemInnerSpacing.x + flTrackWidth));
+		const rect rcTotal{ rRegion.vecCursor, rRegion.vecCursor + vec2{ flTotal, flTotalHeight } };
 		ItemSize(rcTotal.Size(), rStyle.vecFramePadding.y);
 		if (!ItemAdd(rcTotal, uID))
 			return false;
@@ -645,11 +682,11 @@ namespace OmegaGUI
 		}
 		const float flHover = AnimateBool(uID, bHovered || (g.uNavID == uID && g.bNavVisible));
 		const float flOn = AnimateBool(HashString("#on", uID), *pValue, 18.f);
-		const float flCenterY = std::floor(rcTotal.Center().y);
+		const float flCenterY = std::floor(rcTotal.min.y + flHeight * .5f);
 		const rect rcTrack{ rcTotal.max.x - flTrackWidth, flCenterY - flTrackHeight * .5f, rcTotal.max.x, flCenterY + flTrackHeight * .5f };
 		clDrawList& rList = pWindow->drawList;
 		if (flLabelWidth > 0.f)
-			RenderText({ rcTotal.min.x, LabelY(rcTotal) }, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
+			RenderLabel(rcTotal, flHeight, flLabelWidth, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
 		rList.AddRectFilled(rcTrack.min, rcTrack.max, WithGlobalAlpha(rStyle.Get(EColor::Background).Lerp(rStyle.Get(EColor::Accent), flOn)), flTrackHeight * .5f);
 		rList.AddRect(rcTrack.min, rcTrack.max, WithGlobalAlpha(rStyle.Get(EColor::Border).Lerp(rStyle.Get(EColor::Accent), std::max(flOn, flHover * .5f))), flTrackHeight * .5f);
 		const float flKnobRadius = flTrackHeight * .5f - 3.f;
@@ -669,8 +706,18 @@ namespace OmegaGUI
 		const ID uID = pWindow->GetID(strLabel);
 		stRegion& rRegion = pWindow->Region();
 		const float flGlyph = MeasureText("(*)").x;
-		const vec2 vecLabel = MeasureText(VisibleLabel(strLabel));
-		const rect rcTotal{ rRegion.vecCursor, rRegion.vecCursor + vec2{ flGlyph + rStyle.vecItemInnerSpacing.x + vecLabel.x, FrameHeight() } };
+		const std::string_view strVisible = VisibleLabel(strLabel);
+		const float flHeight = FrameHeight();
+		const float flOffset = std::floor((flHeight - GetTextLineHeight()) * .5f);
+		const float flLabelRoom = std::max(GetContentRegionAvail().x - flGlyph - rStyle.vecItemInnerSpacing.x, 20.f);
+		vec2 vecLabel = MeasureText(strVisible);
+		float flLabelWrap = 0.f;
+		if (vecLabel.x > flLabelRoom && AutoWrapWidth() > 0.f)
+		{
+			flLabelWrap = flLabelRoom + 1.f;
+			vecLabel = MeasureText(strVisible, flLabelWrap);
+		}
+		const rect rcTotal{ rRegion.vecCursor, rRegion.vecCursor + vec2{ flGlyph + rStyle.vecItemInnerSpacing.x + vecLabel.x, std::max(flHeight, flOffset + vecLabel.y) } };
 		ItemSize(rcTotal.Size(), rStyle.vecFramePadding.y);
 		if (!ItemAdd(rcTotal, uID))
 			return false;
@@ -678,9 +725,9 @@ namespace OmegaGUI
 		const bool bPressed = ButtonBehavior(rcTotal, uID, &bHovered, nullptr);
 		const float flHover = AnimateBool(uID, bHovered || (g.uNavID == uID && g.bNavVisible));
 		const float flMark = AnimateBool(HashString("#mark", uID), bActive, 22.f);
-		const float flY = LabelY(rcTotal);
+		const float flY = flLabelWrap > 0.f ? rcTotal.min.y + flOffset : LabelY(rcTotal);
 		DrawCheckGlyph({ rcTotal.min.x, flY }, "(", "*", ")", flMark, rStyle.Get(EColor::TextDisabled).Lerp(rStyle.Get(EColor::Accent), flHover * .6f), rStyle.Get(EColor::Accent));
-		RenderText({ rcTotal.min.x + flGlyph + rStyle.vecItemInnerSpacing.x, flY }, strLabel, rStyle.Get(bActive ? EColor::TextHeading : EColor::Text).Lerp(rStyle.Get(EColor::Accent), flHover * .35f));
+		RenderTextWrapped({ rcTotal.min.x + flGlyph + rStyle.vecItemInnerSpacing.x, flY }, strLabel, rStyle.Get(bActive ? EColor::TextHeading : EColor::Text).Lerp(rStyle.Get(EColor::Accent), flHover * .35f), flLabelWrap);
 		RenderNavHighlight(rcTotal, uID);
 		return bPressed;
 	}
@@ -776,7 +823,7 @@ namespace OmegaGUI
 			pWindow->stLast.rcItem = rcTotal;
 
 			if (flLabelWidth > 0.f)
-				RenderText({ rcTotal.min.x, LabelY(rcTotal) }, strLabel, rStyle.Get(EColor::Text));
+				RenderLabel(rcTotal, flHeight, flLabelWidth, strLabel, rStyle.Get(EColor::Text));
 			RenderNavHighlight(rcTotal, uID);
 			pWindow->stLast.bEdited = bChanged;
 			if (bChanged)
@@ -831,12 +878,12 @@ namespace OmegaGUI
 		{
 			const float flHover = AnimateBool(uID, bHovered || bOpen || (g.uNavID == uID && g.bNavVisible));
 			if (flLabelWidth > 0.f)
-				RenderText({ rcTotal.min.x, LabelY(rcTotal) }, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
+				RenderLabel(rcTotal, flHeight, flLabelWidth, strLabel, rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::TextHeading), flHover));
 			RenderFrame(rcControl, rStyle.Get(EColor::Background), true, rStyle.Get(EColor::Border).Lerp(rStyle.Get(EColor::Accent), flHover), rStyle.flRoundingSmall);
 			if (bOpen)
 				pWindow->drawList.AddGlowRect(rcControl.min, rcControl.max, WithGlobalAlpha(rStyle.Get(EColor::AccentGlow)), 3.f, rStyle.flRoundingSmall);
 			const rect rcText{ rcControl.min + vec2{ rStyle.vecFramePadding.x, 0.f }, { rcControl.max.x - flHeight, rcControl.max.y } };
-			RenderTextClipped(rcText, strPreview, rStyle.Get(EColor::Text), { 0.f, .5f }, &rcText);
+			RenderTextEllipsis(rcText, strPreview, rStyle.Get(EColor::Text), { 0.f, .5f });
 			const vec2 vecArrow{ rcControl.max.x - flHeight * .5f, rcControl.Center().y };
 			const float flArrow = 3.5f;
 			const float flFlip = Animate(HashString("#arrow", uID), bOpen ? -1.f : 1.f, 20.f);
@@ -892,9 +939,16 @@ namespace OmegaGUI
 		const stStyle& rStyle = g.stCurrentStyle;
 		const ID uID = pWindow->GetID(strLabel);
 		stRegion& rRegion = pWindow->Region();
-		const vec2 vecText = MeasureText(VisibleLabel(strLabel));
-		const float flWidth = vecSize.x > 0.f ? vecSize.x : std::max(GetContentRegionAvail().x, vecText.x + rStyle.vecFramePadding.x * 2.f);
-		const rect rcRow{ rRegion.vecCursor, rRegion.vecCursor + vec2{ flWidth, vecSize.y > 0.f ? vecSize.y : FrameHeight() } };
+		const std::string_view strVisible = VisibleLabel(strLabel);
+			const vec2 vecText = MeasureText(strVisible);
+			const bool bCanWrap = AutoWrapWidth() > 0.f;
+			const float flAvailable = GetContentRegionAvail().x;
+			const float flWidth = vecSize.x > 0.f ? vecSize.x : (bCanWrap ? flAvailable : std::max(flAvailable, vecText.x + rStyle.vecFramePadding.x * 2.f));
+			const float flTextRoom = flWidth - rStyle.vecFramePadding.x * 2.f;
+			const bool bWrap = bCanWrap && vecSize.y <= 0.f && vecText.x > flTextRoom && flTextRoom > 20.f;
+			const float flWrapWidth = bWrap ? flTextRoom + 1.f : 0.f;
+			const float flRowHeight = vecSize.y > 0.f ? vecSize.y : (bWrap ? std::max(FrameHeight(), MeasureText(strVisible, flWrapWidth).y + rStyle.vecFramePadding.y * 2.f) : FrameHeight());
+			const rect rcRow{ rRegion.vecCursor, rRegion.vecCursor + vec2{ flWidth, flRowHeight } };
 		ItemSize(rcRow.Size(), rStyle.vecFramePadding.y);
 		if (!ItemAdd(rcRow, uID))
 			return false;
@@ -910,7 +964,11 @@ namespace OmegaGUI
 		}
 		if (flHover > .01f)
 			rList.AddRectFilled(rcRow.min, rcRow.max, WithGlobalAlpha(rStyle.Get(EColor::Hover).MultiplyAlpha(flHover)), rStyle.flRoundingSmall);
-		RenderTextClipped({ rcRow.min + vec2{ rStyle.vecFramePadding.x, 0.f }, rcRow.max }, strLabel, bSelected ? rStyle.Get(EColor::Accent) : rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::Accent), flHover), { 0.f, .5f });
+		const color colLabel = bSelected ? rStyle.Get(EColor::Accent) : rStyle.Get(EColor::Text).Lerp(rStyle.Get(EColor::Accent), flHover);
+		if (bWrap)
+			RenderTextWrapped({ rcRow.min.x + rStyle.vecFramePadding.x, rcRow.min.y + rStyle.vecFramePadding.y }, strLabel, colLabel, flWrapWidth);
+		else
+			RenderTextEllipsis({ rcRow.min + vec2{ rStyle.vecFramePadding.x, 0.f }, rcRow.max }, strLabel, colLabel, { 0.f, .5f });
 		if (bFocused && !HasFlag(pWindow->eFlags, EWindowFlags::Popup))
 			RenderNavHighlight(rcRow, uID);
 		if (bPressed && HasFlag(pWindow->eFlags, EWindowFlags::Popup) && !HasFlag(pWindow->eFlags, EWindowFlags::Modal))
@@ -1050,9 +1108,21 @@ namespace OmegaGUI
 			bool bOpen = itState->second != 0;
 
 			stRegion& rRegion = pWindow->Region();
-			const float flHeight = FrameHeight();
-			const float flWidth = bFramed ? GetContentRegionAvail().x : MeasureText(VisibleLabel(strLabel)).x + MeasureText("[+] ").x + rStyle.vecFramePadding.x;
-			const rect rcRow{ rRegion.vecCursor, rRegion.vecCursor + vec2{ flWidth, flHeight } };
+			const float flFrame = FrameHeight();
+				const std::string_view strVisible = VisibleLabel(strLabel);
+				const float flGlyph = MeasureText("[+] ").x;
+				const float flAvailable = GetContentRegionAvail().x;
+				const float flNatural = MeasureText(strVisible).x;
+				const float flLabelRoom = std::max(flAvailable - flGlyph - (bFramed ? rStyle.vecFramePadding.x * 2.f : 0.f), 20.f);
+				float flLabelWrap = 0.f;
+				float flHeight = flFrame;
+				if (flNatural > flLabelRoom && AutoWrapWidth() > 0.f)
+				{
+					flLabelWrap = flLabelRoom + 1.f;
+					flHeight = std::max(flFrame, std::floor((flFrame - GetTextLineHeight()) * .5f) + MeasureText(strVisible, flLabelWrap).y);
+				}
+				const float flWidth = bFramed ? flAvailable : (flLabelWrap > 0.f ? flAvailable : flNatural + flGlyph + rStyle.vecFramePadding.x);
+				const rect rcRow{ rRegion.vecCursor, rRegion.vecCursor + vec2{ flWidth, flHeight } };
 			ItemSize(rcRow.Size(), rStyle.vecFramePadding.y);
 			if (!ItemAdd(rcRow, uID))
 				return bOpen;
@@ -1073,9 +1143,9 @@ namespace OmegaGUI
 				rList.AddRectFilled(rcRow.min, rcRow.max, WithGlobalAlpha(rStyle.Get(EColor::Surface2).Lerp(rStyle.Get(EColor::Hover), flHover)), rStyle.flRoundingSmall);
 				rList.AddRect(rcRow.min, rcRow.max, WithGlobalAlpha(rStyle.Get(EColor::Border).Lerp(rStyle.Get(EColor::Accent), flHover * .6f)), rStyle.flRoundingSmall);
 			}
-			const vec2 vecPosition{ rcRow.min.x + (bFramed ? rStyle.vecFramePadding.x : 0.f), LabelY(rcRow) };
+			const vec2 vecPosition{ rcRow.min.x + (bFramed ? rStyle.vecFramePadding.x : 0.f), flLabelWrap > 0.f ? rcRow.min.y + std::floor((flFrame - GetTextLineHeight()) * .5f) : LabelY(rcRow) };
 			DrawCheckGlyph(vecPosition, "[", bOpen ? "-" : "+", "] ", 1.f, rStyle.Get(EColor::TextDisabled), rStyle.Get(EColor::Accent));
-			RenderText(vecPosition + vec2{ MeasureText("[+] ").x, 0.f }, strLabel, rStyle.Get(bOpen ? EColor::TextHeading : EColor::Text).Lerp(rStyle.Get(EColor::Accent), flHover * .4f));
+			RenderTextWrapped(vecPosition + vec2{ flGlyph, 0.f }, strLabel, rStyle.Get(bOpen ? EColor::TextHeading : EColor::Text).Lerp(rStyle.Get(EColor::Accent), flHover * .4f), flLabelWrap);
 			RenderNavHighlight(rcRow, uID);
 			return bOpen;
 		}

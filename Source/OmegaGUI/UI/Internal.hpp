@@ -442,6 +442,12 @@ namespace OmegaGUI
 	void RenderText(const vec2& vecPosition, std::string_view strText, color col);
 	void RenderTextClipped(const rect& rcBounds, std::string_view strText, color col, const vec2& vecAlign = {}, const rect* pClip = nullptr);
 	[[nodiscard]] vec2 MeasureText(std::string_view strText, float flWrapWidth = 0.f);
+	[[nodiscard]] float AutoWrapWidth();
+	[[nodiscard]] std::string EllipsizeText(std::string_view strText, float flWidth);
+	void RenderTextWrapped(const vec2& vecPosition, std::string_view strText, color col, float flWrapWidth);
+	void RenderTextWrappedAligned(const rect& rcBounds, std::string_view strText, color col, float flAlignX, float flWrapWidth);
+	void RenderTextEllipsis(const rect& rcBounds, std::string_view strText, color col, const vec2& vecAlign = {});
+	void RenderLabel(const rect& rcTotal, float flControlHeight, float flLabelWidth, std::string_view strLabel, color col);
 	[[nodiscard]] float FrameHeight();
 	[[nodiscard]] float CalcItemWidthFull(float flAvailable);
 	[[nodiscard]] rect LabeledControlRect(std::string_view strLabel, float flHeight, rect& rcTotal, float& flLabelWidth);

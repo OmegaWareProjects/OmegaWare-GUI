@@ -4,8 +4,6 @@ namespace OmegaGUI
 {
 	namespace
 	{
-		constexpr float flPi = std::numbers::pi_v<float>;
-
 		[[nodiscard]] bool ConditionPasses(ECondition eCondition, const stWindow* pWindow, bool bFirstUse)
 		{
 			switch (eCondition)
