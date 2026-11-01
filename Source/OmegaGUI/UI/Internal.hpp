@@ -183,6 +183,13 @@ namespace OmegaGUI
 		float flSavedLineStartX = 0.f;
 		float flSavedContentMinX = 0.f;
 		float flBarScrollX = 0.f;
+		float flScroll = 0.f;
+		float flScrollTarget = -1.f;
+		float flContentExtent = 0.f;
+		float flViewExtent = 0.f;
+		bool bScrollable = false;
+		rect rcView;
+		ID uRevealed = 0;
 		bool bSubmittedSelected = false;
 		rect rcSelected;
 		stWindow* pWindow = nullptr;

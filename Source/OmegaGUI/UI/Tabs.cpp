@@ -2,6 +2,103 @@
 
 namespace OmegaGUI
 {
+	namespace
+	{
+		constexpr float kTabScrollbarGap = 2.f;
+
+		[[nodiscard]] float TabScrollbarThickness(const stStyle& rStyle)
+		{
+			return std::max(4.f, std::floor(rStyle.flScrollbarSize * .5f));
+		}
+
+		[[nodiscard]] float TabScrollMax(const stTabBar& rBar)
+		{
+			return rBar.bScrollable ? std::max(0.f, rBar.flContentExtent - rBar.flViewExtent) : 0.f;
+		}
+
+		void RevealTab(stTabBar& rBar, float flStart, float flEnd, float flViewStart)
+		{
+			const float flViewEnd = flViewStart + rBar.flViewExtent;
+			float flNew = rBar.flScroll;
+			if (flStart < flViewStart)
+				flNew -= flViewStart - flStart;
+			else if (flEnd > flViewEnd)
+				flNew += flEnd - flViewEnd;
+			if (flNew != rBar.flScroll)
+				rBar.flScrollTarget = std::clamp(flNew, 0.f, TabScrollMax(rBar));
+		}
+
+		void UpdateTabScroll(stContext& g, stWindow* pWindow, stTabBar& rBar, bool bVertical)
+		{
+			const stStyle& rStyle = g.stCurrentStyle;
+			rBar.bScrollable = !HasFlag(rBar.eFlags, ETabBarFlags::NoScroll) && !HasFlag(rBar.eFlags, ETabBarFlags::Stretch) && rBar.flViewExtent > 0.f && rBar.flContentExtent > rBar.flViewExtent + .5f;
+			if (!rBar.bScrollable)
+			{
+				rBar.flScroll = 0.f;
+				rBar.flScrollTarget = -1.f;
+				return;
+			}
+			const float flMax = TabScrollMax(rBar);
+			if (g.uWheelRegion == rBar.uID && g.pWheelWindow == pWindow)
+			{
+				const float flWheel = g.clInputState.GetMouseWheel();
+				if (flWheel != 0.f)
+				{
+					const float flStep = rStyle.flTabHeight * (bVertical ? 2.f : 3.f);
+					rBar.flScrollTarget = std::clamp((rBar.flScrollTarget >= 0.f ? rBar.flScrollTarget : rBar.flScroll) - flWheel * flStep, 0.f, flMax);
+				}
+			}
+			if (rBar.flScrollTarget >= 0.f)
+			{
+				rBar.flScroll = rStyle.bAnimations ? ApproachExp(rBar.flScroll, rBar.flScrollTarget, 18.f, g.flDeltaTime) : rBar.flScrollTarget;
+				if (std::abs(rBar.flScroll - rBar.flScrollTarget) < .5f)
+				{
+					rBar.flScroll = rBar.flScrollTarget;
+					rBar.flScrollTarget = -1.f;
+				}
+			}
+			rBar.flScroll = std::clamp(rBar.flScroll, 0.f, flMax);
+		}
+
+		void DrawTabScrollbar(stContext& g, stWindow* pWindow, stTabBar& rBar, bool bVertical)
+		{
+			const stStyle& rStyle = g.stCurrentStyle;
+			const float flThickness = TabScrollbarThickness(rStyle);
+			const rect& rcView = rBar.rcView;
+			const rect rcTrack = bVertical ? rect{ rcView.max.x - flThickness - 1.f, rcView.min.y, rcView.max.x - 1.f, rcView.max.y } : rect{ rcView.min.x, rcView.max.y + kTabScrollbarGap, rcView.max.x, rcView.max.y + kTabScrollbarGap + flThickness };
+			const float flTrackLength = bVertical ? rcTrack.Height() : rcTrack.Width();
+			const float flMax = TabScrollMax(rBar);
+			if (flTrackLength <= 0.f || flMax <= 0.f)
+				return;
+			const float flThumbLength = std::max(flTrackLength * rBar.flViewExtent / rBar.flContentExtent, 20.f);
+			const float flTravel = std::max(flTrackLength - flThumbLength, 1.f);
+			const float flThumbPos = flTravel * (rBar.flScroll / flMax);
+			const rect rcThumb = bVertical ? rect{ rcTrack.min.x, rcTrack.min.y + flThumbPos, rcTrack.max.x, rcTrack.min.y + flThumbPos + flThumbLength } : rect{ rcTrack.min.x + flThumbPos, rcTrack.min.y, rcTrack.min.x + flThumbPos + flThumbLength, rcTrack.max.y };
+
+			const vec2 vecMouse = g.clInputState.GetMousePosition();
+			const ID uScrollID = HashString("#tabscroll", rBar.uID);
+			bool bHovered = false;
+			bool bHeld = false;
+			ButtonBehavior(rcTrack.Expanded(2.f), uScrollID, &bHovered, &bHeld, EItemFlags::NoNav | EItemFlags::PressOnClick);
+			if (bHeld)
+			{
+				const float flMouse = bVertical ? vecMouse.y : vecMouse.x;
+				if (g.bActiveIDJustActivated)
+				{
+					const float flOffset = bVertical ? vecMouse.y - rcThumb.min.y : vecMouse.x - rcThumb.min.x;
+					g.vecActiveClickOffset.x = rcThumb.Contains(vecMouse) ? flOffset : flThumbLength * .5f;
+				}
+				const float flTrackMin = bVertical ? rcTrack.min.y : rcTrack.min.x;
+				rBar.flScroll = std::clamp((flMouse - g.vecActiveClickOffset.x - flTrackMin) / flTravel, 0.f, 1.f) * flMax;
+				rBar.flScrollTarget = -1.f;
+			}
+			const float flHover = AnimateBool(uScrollID, bHovered || bHeld);
+			clDrawList& rList = pWindow->drawList;
+			rList.AddRectFilled(rcTrack.min, rcTrack.max, WithGlobalAlpha(rStyle.Get(EColor::Background).MultiplyAlpha(.5f * flHover)), flThickness * .5f);
+			rList.AddRectFilled(rcThumb.min, rcThumb.max, WithGlobalAlpha(rStyle.Get(EColor::Border).Lerp(rStyle.Get(EColor::Accent), flHover * .7f)), flThickness * .5f);
+		}
+	}
+
 	bool BeginTabBar(std::string_view strID, ETabBarFlags eFlags)
 	{
 		stContext& g = Ctx();
@@ -35,19 +132,25 @@ namespace OmegaGUI
 		if (rRegion.flCurrLineHeight > 0.f)
 			NewLine();
 		const vec2 vecStart = rRegion.vecCursor;
-		if (!HasFlag(eFlags, ETabBarFlags::Vertical))
+		const bool bVertical = HasFlag(eFlags, ETabBarFlags::Vertical);
+		rBar.flViewExtent = bVertical ? std::max(rRegion.rcContent.max.y - vecStart.y, 0.f) : GetContentRegionAvail().x;
+		UpdateTabScroll(g, pWindow, rBar, bVertical);
+		if (!bVertical)
 		{
 			const float flWidth = GetContentRegionAvail().x;
+			const float flExtra = rBar.bScrollable ? TabScrollbarThickness(rStyle) + kTabScrollbarGap + 1.f : 0.f;
 			rBar.rcBar = { vecStart, vecStart + vec2{ flWidth, rStyle.flTabHeight } };
-			rBar.vecBarCursor = vecStart;
+			rBar.rcView = rBar.rcBar;
+			rBar.vecBarCursor = vecStart - vec2{ std::floor(rBar.flScroll), 0.f };
 			pWindow->drawList.AddRectFilled({ rBar.rcBar.min.x, rBar.rcBar.max.y - 1.f }, rBar.rcBar.max, WithGlobalAlpha(rStyle.Get(EColor::Border)));
-			ItemSize(rBar.rcBar.Size());
+			ItemSize(rBar.rcBar.Size() + vec2{ 0.f, flExtra });
 			Spacing();
 		}
 		else
 		{
 			rBar.rcBar = { vecStart, vecStart + vec2{ rStyle.flSidebarWidth, 0.f } };
-			rBar.vecBarCursor = vecStart;
+			rBar.rcView = { vecStart, vecStart + vec2{ rStyle.flSidebarWidth, rBar.flViewExtent } };
+			rBar.vecBarCursor = vecStart - vec2{ 0.f, std::floor(rBar.flScroll) };
 			rBar.flSavedLineStartX = rRegion.flLineStartX;
 			rBar.flContentStartY = vecStart.y;
 			rRegion.flLineStartX = rBar.rcBar.max.x + rStyle.vecItemSpacing.x * 2.f - rRegion.flIndent;
@@ -72,6 +175,14 @@ namespace OmegaGUI
 			rBar.uSelected = rBar.aTabs.front();
 
 		const bool bVertical = HasFlag(rBar.eFlags, ETabBarFlags::Vertical);
+		rBar.flContentExtent = std::max(bVertical ? rBar.vecBarCursor.y + std::floor(rBar.flScroll) - rBar.rcBar.min.y - 2.f : rBar.vecBarCursor.x + std::floor(rBar.flScroll) - rBar.rcBar.min.x - 2.f, 0.f);
+		if (rBar.bScrollable && !g.uWheelRegionNext && g.pHoveredWindow == pWindow && rBar.rcView.Contains(g.clInputState.GetMousePosition()))
+		{
+			g.uWheelRegionNext = rBar.uID;
+			g.pWheelWindowNext = pWindow;
+		}
+		if (rBar.bScrollable && !pWindow->bSkipItems)
+			DrawTabScrollbar(g, pWindow, rBar, bVertical);
 		if (rBar.bSubmittedSelected)
 		{
 			const rect& rcSelected = rBar.rcSelected;
@@ -97,20 +208,25 @@ namespace OmegaGUI
 			if (rBar.bSubmittedSelected)
 			{
 				const float flX = rBar.rcBar.min.x + rBar.flIndicatorX;
+				rList.PushClipRect(rBar.rcView);
 				rList.AddRectFilled({ flX, rBar.rcBar.max.y - 2.f }, { flX + rBar.flIndicatorWidth, rBar.rcBar.max.y }, colAccent);
+				rList.PopClipRect();
 			}
 			return;
 		}
 
 		stRegion& rRegion = pWindow->Region();
 		const float flContentBottom = rRegion.flCurrLineHeight > 0.f ? rRegion.vecCursor.y + rRegion.flCurrLineHeight : rRegion.vecCursor.y - rStyle.vecItemSpacing.y;
-		const float flBottom = std::max({ rBar.vecBarCursor.y, flContentBottom, rRegion.vecCursorMax.y });
+		const float flBarBottom = rBar.bScrollable ? rBar.rcView.max.y : rBar.vecBarCursor.y;
+		const float flBottom = std::max({ flBarBottom, flContentBottom, rRegion.vecCursorMax.y });
 		const float flLineX = rBar.rcBar.max.x + rStyle.vecItemSpacing.x - 1.f;
 		rList.AddRectFilled({ flLineX, rBar.rcBar.min.y }, { flLineX + 1.f, flBottom }, WithGlobalAlpha(rStyle.Get(EColor::Border)));
 		if (rBar.bSubmittedSelected)
 		{
 			const float flY = rBar.rcBar.min.y + rBar.flIndicatorY;
+			rList.PushClipRect(rBar.rcView);
 			rList.AddRectFilled({ rBar.rcBar.min.x, flY }, { rBar.rcBar.min.x + 2.f, flY + rBar.flIndicatorHeight }, colAccent);
+			rList.PopClipRect();
 		}
 		rRegion.flLineStartX = rBar.flSavedLineStartX;
 		rRegion.vecCursor = { rRegion.flLineStartX + rRegion.flIndent, flBottom + rStyle.vecItemSpacing.y };
@@ -151,18 +267,26 @@ namespace OmegaGUI
 		}
 		else
 		{
-			rcTab = { rBar.vecBarCursor, { rBar.rcBar.max.x, rBar.vecBarCursor.y + rStyle.flTabHeight } };
+			rcTab = { rBar.vecBarCursor, { rBar.rcBar.max.x - (rBar.bScrollable ? TabScrollbarThickness(rStyle) + 3.f : 0.f), rBar.vecBarCursor.y + rStyle.flTabHeight } };
 			rBar.vecBarCursor.y += rStyle.flTabHeight + 2.f;
 		}
 
+		const bool bScrolled = rBar.bScrollable;
+		const rect& rcView = rBar.rcView;
+		const bool bVisibleTab = !bScrolled || (rcTab.max.x > rcView.min.x && rcTab.min.x < rcView.max.x && rcTab.max.y > rcView.min.y && rcTab.min.y < rcView.max.y);
+		const rect rcHit = bScrolled ? rcTab.Clipped(rcView) : rcTab;
 		stLastItem stSavedLast = pWindow->stLast;
-		ItemAdd(rcTab, uID);
 		bool bHovered = false;
-		bool bPressed = ButtonBehavior(rcTab, uID, &bHovered, nullptr, EItemFlags::PressOnClick);
+		bool bPressed = false;
+		if (bVisibleTab)
+		{
+			ItemAdd(rcHit, uID);
+			bPressed = ButtonBehavior(rcHit, uID, &bHovered, nullptr, EItemFlags::PressOnClick);
+		}
 
 		bool bCloseHovered = false;
 		rect rcClose;
-		if (pOpen)
+		if (pOpen && bVisibleTab)
 		{
 			const float flCloseWidth = MeasureText("x").x + 6.f;
 			rcClose = { { rcTab.max.x - flCloseWidth - rStyle.vecFramePadding.x * .5f, rcTab.min.y + 4.f }, { rcTab.max.x - rStyle.vecFramePadding.x * .5f, rcTab.max.y - 4.f } };
@@ -179,8 +303,17 @@ namespace OmegaGUI
 		if (bPressed)
 			rBar.uSelected = uID;
 		const bool bNowSelected = rBar.uSelected == uID && (!pOpen || *pOpen);
-		const float flHover = AnimateBool(uID, bHovered || (g.uNavID == uID && g.bNavVisible));
+		if (bScrolled && bNowSelected && rBar.uRevealed != uID)
+		{
+			rBar.uRevealed = uID;
+			RevealTab(rBar, bVertical ? rcTab.min.y : rcTab.min.x, bVertical ? rcTab.max.y : rcTab.max.x, bVertical ? rcView.min.y : rcView.min.x);
+		}
 		clDrawList& rList = pWindow->drawList;
+		if (bVisibleTab)
+		{
+		const float flHover = AnimateBool(uID, bHovered || (g.uNavID == uID && g.bNavVisible));
+		if (bScrolled)
+			rList.PushClipRect(rcView);
 
 		if (bVertical)
 		{
@@ -201,7 +334,10 @@ namespace OmegaGUI
 		if (pOpen && (bHovered || bCloseHovered || bNowSelected))
 			rList.AddText({ rcClose.min.x + 3.f, flTextY }, WithGlobalAlpha(bCloseHovered ? rStyle.Get(EColor::Danger) : rStyle.Get(EColor::TextDisabled)), "x");
 		rList.PopClipRect();
+		if (bScrolled)
+			rList.PopClipRect();
 		RenderNavHighlight(rcTab, uID);
+		}
 
 		pWindow->stLast = stSavedLast;
 		pWindow->stLast.uID = uID;
@@ -239,11 +375,19 @@ namespace OmegaGUI
 			return;
 		stWindow* pWindow = CurrentWindow();
 		const stStyle& rStyle = g.stCurrentStyle;
-		const float flGap = rBar.vecBarCursor.y > rBar.rcBar.min.y ? std::round(rStyle.vecItemSpacing.y * 1.5f) : 0.f;
+		const float flGap = rBar.vecBarCursor.y > rBar.rcBar.min.y - std::floor(rBar.flScroll) ? std::round(rStyle.vecItemSpacing.y * 1.5f) : 0.f;
 		const vec2 vecText{ rBar.vecBarCursor.x + rStyle.vecFramePadding.x + 4.f, rBar.vecBarCursor.y + flGap };
 		const std::string_view strPrefix = rStyle.bConsolePrefixes ? "## " : "";
-		pWindow->drawList.AddText(vecText, WithGlobalAlpha(rStyle.Get(EColor::TextDisabled)), strPrefix);
-		pWindow->drawList.AddText(vecText + vec2{ MeasureText(strPrefix).x, 0.f }, WithGlobalAlpha(rStyle.Get(EColor::TextMuted)), EllipsizeText(VisibleLabel(strLabel), std::max(rBar.rcBar.max.x - vecText.x - MeasureText(strPrefix).x - rStyle.vecFramePadding.x, 10.f)));
+		const bool bVisibleSection = !rBar.bScrollable || (vecText.y + GetTextLineHeight() > rBar.rcView.min.y && vecText.y < rBar.rcView.max.y);
+		if (bVisibleSection)
+		{
+			if (rBar.bScrollable)
+				pWindow->drawList.PushClipRect(rBar.rcView);
+			pWindow->drawList.AddText(vecText, WithGlobalAlpha(rStyle.Get(EColor::TextDisabled)), strPrefix);
+			pWindow->drawList.AddText(vecText + vec2{ MeasureText(strPrefix).x, 0.f }, WithGlobalAlpha(rStyle.Get(EColor::TextMuted)), EllipsizeText(VisibleLabel(strLabel), std::max(rBar.rcBar.max.x - vecText.x - MeasureText(strPrefix).x - rStyle.vecFramePadding.x, 10.f)));
+			if (rBar.bScrollable)
+				pWindow->drawList.PopClipRect();
+		}
 		rBar.vecBarCursor.y += flGap + GetTextLineHeight() + std::round(rStyle.vecItemSpacing.y * .5f);
 	}
 

@@ -244,17 +244,22 @@ namespace OmegaGUI
 		if (pWindow->bAppearing && HasFlag(eFlags, EWindowFlags::AlwaysAutoResize))
 			pWindow->iAutoFitFrames = 2;
 
+		const auto itSaved = g.mapSettings.find(uID);
+		const bool bHasSaved = itSaved != g.mapSettings.end() && !HasFlag(eFlags, EWindowFlags::NoSavedSettings);
+		const bool bSavedSize = bHasSaved && itSaved->second.bHasSize;
+		const bool bSavedPosition = bHasSaved && itSaved->second.bHasPosition;
+
 		stNextWindow& rNext = g.stNext;
 		if (rNext.optConstraints)
 		{
 			pWindow->vecSizeMin = rNext.optConstraints->first;
 			pWindow->vecSizeMax = rNext.optConstraints->second;
 		}
-		if (rNext.optSize && ConditionPasses(rNext.eSizeCondition, pWindow, bFirstUse || !pWindow->vecSizeFull.x))
+		if (rNext.optSize && ConditionPasses(rNext.eSizeCondition, pWindow, (bFirstUse && !bSavedSize) || !pWindow->vecSizeFull.x))
 			pWindow->vecSize = pWindow->vecSizeFull = *rNext.optSize;
-		if (rNext.optCollapsed && ConditionPasses(rNext.eCollapsedCondition, pWindow, bFirstUse))
+		if (rNext.optCollapsed && ConditionPasses(rNext.eCollapsedCondition, pWindow, bFirstUse && !bHasSaved))
 			pWindow->bCollapsed = *rNext.optCollapsed;
-		const bool bApplyPosition = rNext.optPosition && ConditionPasses(rNext.ePositionCondition, pWindow, bFirstUse || pWindow->bNew);
+		const bool bApplyPosition = rNext.optPosition && ConditionPasses(rNext.ePositionCondition, pWindow, (bFirstUse || pWindow->bNew) && !bSavedPosition);
 		const auto optPosition = rNext.optPosition;
 		const bool bFocusRequested = rNext.bFocus;
 		rNext.Clear();

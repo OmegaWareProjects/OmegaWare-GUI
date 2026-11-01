@@ -56,6 +56,7 @@ namespace OmegaGUI
 		Vertical = 1u << 0,
 		Stretch = 1u << 1,
 		NoGamepadCycle = 1u << 2,
+		NoScroll = 1u << 3,
 	};
 	template <> struct stEnableFlags<ETabBarFlags> : std::true_type {};
 
