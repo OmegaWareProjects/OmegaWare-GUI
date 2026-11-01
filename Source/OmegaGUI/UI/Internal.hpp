@@ -136,6 +136,7 @@ namespace OmegaGUI
 		std::optional<std::pair<vec2, vec2>> optAutoFitPosition;
 		vec2 vecAutoFitSize;
 		float flAlpha = 1.f;
+		float flOpacity = 1.f;
 		float flCollapse = 0.f;
 		clDrawList drawList;
 		std::vector<ID> aIDStack;
@@ -301,6 +302,7 @@ namespace OmegaGUI
 		std::optional<std::pair<vec2, vec2>> optConstraints;
 		std::optional<bool> optCollapsed;
 		ECondition eCollapsedCondition = ECondition::FirstUse;
+		std::optional<float> optOpacity;
 		bool bFocus = false;
 		void Clear() { *this = {}; }
 	};

@@ -214,6 +214,7 @@ namespace OmegaGUI
 
 	void SetNextWindowPos(const vec2& vecPosition, ECondition eCondition = ECondition::FirstUse, const vec2& vecPivot = {});
 	void SetNextWindowSize(const vec2& vecSize, ECondition eCondition = ECondition::FirstUse);
+	void SetNextWindowOpacity(float flOpacity);
 	void SetNextWindowSizeConstraints(const vec2& vecMin, const vec2& vecMax);
 	void SetNextWindowCollapsed(bool bCollapsed, ECondition eCondition = ECondition::FirstUse);
 	void SetNextWindowFocus();

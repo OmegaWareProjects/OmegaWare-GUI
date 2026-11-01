@@ -102,6 +102,11 @@ namespace OmegaGUI
 		Ctx().stNext.eSizeCondition = eCondition;
 	}
 
+	void SetNextWindowOpacity(float flOpacity)
+	{
+		Ctx().stNext.optOpacity = std::clamp(flOpacity, .1f, 1.f);
+	}
+
 	void SetNextWindowSizeConstraints(const vec2& vecMin, const vec2& vecMax)
 	{
 		Ctx().stNext.optConstraints = std::pair{ vecMin, vecMax };
@@ -250,6 +255,7 @@ namespace OmegaGUI
 		const bool bSavedPosition = bHasSaved && itSaved->second.bHasPosition;
 
 		stNextWindow& rNext = g.stNext;
+		pWindow->flOpacity = rNext.optOpacity.value_or(1.f);
 		if (rNext.optConstraints)
 		{
 			pWindow->vecSizeMin = rNext.optConstraints->first;
@@ -353,6 +359,7 @@ namespace OmegaGUI
 
 		const bool bInteractive = g.bVisible && !pWindow->bHiddenThisFrame && !HasFlag(eFlags, EWindowFlags::NoInputs);
 		const float flAlpha = pWindow->flAlpha;
+		const float flChromeAlpha = flAlpha * pWindow->flOpacity;
 		clDrawList& rList = pWindow->drawList;
 
 		if (HasFlag(eFlags, EWindowFlags::Modal) && !pWindow->bHiddenThisFrame)
@@ -366,10 +373,10 @@ namespace OmegaGUI
 		const float flRounding = bPopup && !HasFlag(eFlags, EWindowFlags::Modal) ? rStyle.flRounding : rStyle.flWindowRounding;
 		if (bDrawBackground)
 		{
-			rList.AddShadowRect(rcWindow.min, rcWindow.max, rStyle.Get(EColor::Shadow).MultiplyAlpha(flAlpha), bPopup ? rStyle.flShadowSize * .5f : rStyle.flShadowSize, flRounding, { 0.f, bPopup ? 4.f : 10.f });
-			rList.AddRectFilled(rcWindow.min, rcWindow.max, rStyle.Get(bPopup ? EColor::Surface2 : EColor::Surface).MultiplyAlpha(flAlpha), flRounding);
+			rList.AddShadowRect(rcWindow.min, rcWindow.max, rStyle.Get(EColor::Shadow).MultiplyAlpha(flChromeAlpha), bPopup ? rStyle.flShadowSize * .5f : rStyle.flShadowSize, flRounding, { 0.f, bPopup ? 4.f : 10.f });
+			rList.AddRectFilled(rcWindow.min, rcWindow.max, rStyle.Get(bPopup ? EColor::Surface2 : EColor::Surface).MultiplyAlpha(flChromeAlpha), flRounding);
 			if (HasFlag(eFlags, EWindowFlags::DotGrid) || (rStyle.bDotGrid && !bPopup))
-				DrawDotGrid(rList, { { rcWindow.min.x, pWindow->rcMenuBar.max.y }, rcWindow.max }, rStyle.flDotSpacing, rStyle.Get(EColor::DotGrid).MultiplyAlpha(flAlpha));
+				DrawDotGrid(rList, { { rcWindow.min.x, pWindow->rcMenuBar.max.y }, rcWindow.max }, rStyle.flDotSpacing, rStyle.Get(EColor::DotGrid).MultiplyAlpha(flChromeAlpha));
 		}
 
 		if (flTitleHeight > 0.f && !pWindow->bHiddenThisFrame)
@@ -378,9 +385,9 @@ namespace OmegaGUI
 			const rect& rcTitle = pWindow->rcTitleBar;
 			if (bDrawBackground)
 			{
-				rList.AddRectFilled(rcTitle.min, rcTitle.max, rStyle.Get(EColor::Surface2).MultiplyAlpha(flAlpha), flRounding, pWindow->flCollapse > .99f ? ECorner::All : ECorner::Top);
+				rList.AddRectFilled(rcTitle.min, rcTitle.max, rStyle.Get(EColor::Surface2).MultiplyAlpha(flChromeAlpha), flRounding, pWindow->flCollapse > .99f ? ECorner::All : ECorner::Top);
 				if (pWindow->flCollapse < .99f)
-					rList.AddRectFilled({ rcTitle.min.x, rcTitle.max.y - 1.f }, rcTitle.max, rStyle.Get(EColor::Border).MultiplyAlpha(flAlpha));
+					rList.AddRectFilled({ rcTitle.min.x, rcTitle.max.y - 1.f }, rcTitle.max, rStyle.Get(EColor::Border).MultiplyAlpha(flChromeAlpha));
 			}
 
 			float flControlsRight = rcTitle.max.x - 10.f;
@@ -533,7 +540,7 @@ namespace OmegaGUI
 		pWindow->rcInner = rcInner;
 		if (flMenuHeight > 0.f && bDrawBackground && pWindow->flCollapse < .99f)
 		{
-			rList.AddRectFilled({ pWindow->rcMenuBar.min.x, pWindow->rcMenuBar.max.y - 1.f }, pWindow->rcMenuBar.max, rStyle.Get(EColor::Border).MultiplyAlpha(flAlpha));
+			rList.AddRectFilled({ pWindow->rcMenuBar.min.x, pWindow->rcMenuBar.max.y - 1.f }, pWindow->rcMenuBar.max, rStyle.Get(EColor::Border).MultiplyAlpha(flAlpha * pWindow->flOpacity));
 		}
 
 		const rect rcContent{ rcInner.min + vecPadding, Max(rcInner.max - vecPadding, rcInner.min + vecPadding) };
@@ -576,7 +583,7 @@ namespace OmegaGUI
 			const float flRounding = bPopup ? rStyle.flRounding : rStyle.flWindowRounding;
 			const bool bFocused = g.pFocusedWindow == pWindow || g.pNavWindow == pWindow;
 			const color colBorder = rStyle.Get(bFocused && !bPopup ? EColor::BorderHover : EColor::Border);
-			pWindow->drawList.AddRect(rcWindow.min, rcWindow.max, colBorder.MultiplyAlpha(pWindow->flAlpha), flRounding);
+			pWindow->drawList.AddRect(rcWindow.min, rcWindow.max, colBorder.MultiplyAlpha(pWindow->flAlpha * pWindow->flOpacity), flRounding);
 			if (g.bNavVisible && g.pNavWindow == pWindow && g.bGamepadWindowManip)
 				pWindow->drawList.AddRect(rcWindow.min - vec2{ 2.f, 2.f }, rcWindow.max + vec2{ 2.f, 2.f }, rStyle.Get(EColor::Accent).MultiplyAlpha(pWindow->flAlpha), flRounding + 2.f, 1.5f);
 
