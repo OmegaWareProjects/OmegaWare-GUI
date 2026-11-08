@@ -129,6 +129,8 @@ namespace OmegaGUI
 			pFont = g.clAtlas.AddFontFromFile(g.stSettings.pathFont, flSize, aRanges);
 		if (!pFont)
 			pFont = g.clAtlas.AddDefaultMonospace(flSize, aRanges);
+		if (pFont && !g.stSettings.pathFallbackFont.empty() && !g.aFallbackGlyphRanges.empty())
+			g.clAtlas.AddMergedFontFromFile(g.stSettings.pathFallbackFont, flSize, g.aFallbackGlyphRanges);
 		if (!pFont)
 		{
 			g.strLastError = "no usable monospace font (tried pathFont, CascadiaMono, Consolas, Lucida Console, Courier New)";
@@ -166,6 +168,19 @@ namespace OmegaGUI
 		if (std::ranges::equal(g.aExtraGlyphRanges, aRanges, fnEqual))
 			return;
 		g.aExtraGlyphRanges.assign(aRanges.begin(), aRanges.end());
+		g.bPendingFontRebuild = g.bInitialized;
+	}
+
+	void SetFallbackFont(const std::filesystem::path& pathFont, std::span<const stGlyphRange> aRanges)
+	{
+		if (!g_pContext)
+			SetCurrentContext(CreateContext());
+		stContext& g = Ctx();
+		const auto fnEqual = [](const stGlyphRange& rLeft, const stGlyphRange& rRight) { return rLeft.uFirst == rRight.uFirst && rLeft.uLast == rRight.uLast; };
+		if (g.stSettings.pathFallbackFont == pathFont && std::ranges::equal(g.aFallbackGlyphRanges, aRanges, fnEqual))
+			return;
+		g.stSettings.pathFallbackFont = pathFont;
+		g.aFallbackGlyphRanges.assign(aRanges.begin(), aRanges.end());
 		g.bPendingFontRebuild = g.bInitialized;
 	}
 

@@ -333,6 +333,7 @@ namespace OmegaGUI
 		bool bInitialized = false;
 		float flPendingScale = 0.f;
 		std::vector<stGlyphRange> aExtraGlyphRanges;
+		std::vector<stGlyphRange> aFallbackGlyphRanges;
 		bool bPendingFontRebuild = false;
 		std::string strLastError;
 		bool bInFrame = false;

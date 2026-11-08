@@ -186,6 +186,22 @@ namespace OmegaGUI
 		return AddFontFromMemory(aData, flSizePixels, aRanges);
 	}
 
+	clFont* clFontAtlas::AddMergedFontFromFile(const std::filesystem::path& pathFont, float flSizePixels, std::span<const stGlyphRange> aRanges)
+	{
+		if (m_aSources.empty() || aRanges.empty() || flSizePixels <= 0.f)
+			return nullptr;
+		std::ifstream fileFont(pathFont, std::ios::binary);
+		if (!fileFont)
+			return nullptr;
+		std::vector<std::uint8_t> aData{ std::istreambuf_iterator<char>(fileFont), std::istreambuf_iterator<char>() };
+		if (aData.empty())
+			return nullptr;
+		clFont* pTarget = m_aSources.back().pFont;
+		m_aSources.push_back({ std::move(aData), flSizePixels, std::vector<stGlyphRange>(aRanges.begin(), aRanges.end()), pTarget, true });
+		m_bBuilt = false;
+		return pTarget;
+	}
+
 	clFont* clFontAtlas::AddDefaultMonospace(float flSizePixels, std::span<const stGlyphRange> aRanges)
 	{
 		wchar_t szWindows[MAX_PATH]{};
@@ -292,22 +308,30 @@ namespace OmegaGUI
 			int iAscent = 0, iDescent = 0, iLineGap = 0;
 			stbtt_GetFontVMetrics(&rInfo, &iAscent, &iDescent, &iLineGap);
 			const float flScale = stbtt_ScaleForPixelHeight(&rInfo, rSource.flSizePixels);
-			rFont.m_flSize = rSource.flSizePixels;
-			rFont.m_flAscent = std::round(iAscent * flScale);
-			rFont.m_flLineHeight = std::round((iAscent - iDescent + iLineGap) * flScale);
-			rFont.m_aGlyphs.clear();
-			rFont.m_aLookup.clear();
+			if (!rSource.bMerge)
+			{
+				rFont.m_flSize = rSource.flSizePixels;
+				rFont.m_flAscent = std::round(iAscent * flScale);
+				rFont.m_flLineHeight = std::round((iAscent - iDescent + iLineGap) * flScale);
+				rFont.m_aGlyphs.clear();
+				rFont.m_aLookup.clear();
+			}
 
 			char32_t uMaxCodepoint = 0;
 			for (const stPackedRange& rPacked : aPacked[uSource])
 				uMaxCodepoint = std::max(uMaxCodepoint, rPacked.stRange.uLast);
-			rFont.m_aLookup.assign(uMaxCodepoint + 1, -1);
+			if (rSource.bMerge)
+				rFont.m_aLookup.resize(std::max<std::size_t>(rFont.m_aLookup.size(), uMaxCodepoint + 1), -1);
+			else
+				rFont.m_aLookup.assign(uMaxCodepoint + 1, -1);
 
 			for (const stPackedRange& rPacked : aPacked[uSource])
 				for (std::size_t i = 0; i < rPacked.aChars.size(); ++i)
 				{
 					const char32_t uCodepoint = rPacked.stRange.uFirst + static_cast<char32_t>(i);
 					if (uCodepoint != ' ' && stbtt_FindGlyphIndex(&rInfo, static_cast<int>(uCodepoint)) == 0)
+						continue;
+					if (rSource.bMerge && rFont.m_aLookup[uCodepoint] >= 0)
 						continue;
 					const stbtt_packedchar& rChar = rPacked.aChars[i];
 					stGlyph stNew;

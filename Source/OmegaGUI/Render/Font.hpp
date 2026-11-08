@@ -61,6 +61,7 @@ namespace OmegaGUI
 		clFont* AddFontFromMemory(std::span<const std::uint8_t> aData, float flSizePixels, std::span<const stGlyphRange> aRanges = {});
 		clFont* AddFontFromFile(const std::filesystem::path& pathFont, float flSizePixels, std::span<const stGlyphRange> aRanges = {});
 		clFont* AddDefaultMonospace(float flSizePixels, std::span<const stGlyphRange> aRanges = {});
+		clFont* AddMergedFontFromFile(const std::filesystem::path& pathFont, float flSizePixels, std::span<const stGlyphRange> aRanges);
 
 		bool Build();
 		void Clear();
@@ -85,6 +86,7 @@ namespace OmegaGUI
 			float flSizePixels = 0.f;
 			std::vector<stGlyphRange> aRanges;
 			clFont* pFont = nullptr;
+			bool bMerge = false;
 		};
 
 		std::vector<std::unique_ptr<clFont>> m_aFonts;

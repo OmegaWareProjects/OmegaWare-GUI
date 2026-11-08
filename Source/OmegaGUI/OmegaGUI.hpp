@@ -165,6 +165,7 @@ namespace OmegaGUI
 		float flFontSize = 15.f;
 		float flScale = 1.f;
 		std::filesystem::path pathFont;
+		std::filesystem::path pathFallbackFont;
 	};
 
 	[[nodiscard]] stContext* CreateContext();
@@ -178,6 +179,7 @@ namespace OmegaGUI
 	void SetBackend(clRenderBackend* pBackend);
 	bool RebuildFonts();
 	void SetGlyphRanges(std::span<const stGlyphRange> aRanges);
+	void SetFallbackFont(const std::filesystem::path& pathFont, std::span<const stGlyphRange> aRanges);
 	void SetScale(float flScale);
 
 	[[nodiscard]] stStyle& GetStyle();
