@@ -856,7 +856,12 @@ namespace OmegaGUI
 		const bool bOpen = Begin("##Tooltip", nullptr, EWindowFlags::Tooltip | EWindowFlags::NoTitleBar | EWindowFlags::AlwaysAutoResize | EWindowFlags::NoInputs | EWindowFlags::NoNav |
 			EWindowFlags::NoSavedSettings | EWindowFlags::NoResize | EWindowFlags::NoMove | EWindowFlags::NoScrollbar);
 		g.bTooltipRequested = true;
-		return bOpen;
+		if (!bOpen)
+		{
+			EndTooltip();
+			return false;
+		}
+		return true;
 	}
 
 	void EndTooltip()
@@ -868,15 +873,14 @@ namespace OmegaGUI
 
 	void SetTooltip(std::string_view strText)
 	{
-		if (BeginTooltip())
-		{
-			stWindow* pWindow = CurrentWindow();
-			const float flWrap = 320.f * Ctx().stSettings.flScale;
-			const vec2 vecSize = MeasureText(strText, flWrap);
-			const vec2 vecPosition = pWindow->Region().vecCursor;
-			ItemSize(vecSize);
-			pWindow->drawList.AddText(vecPosition, WithGlobalAlpha(Style().Get(EColor::Text)), strText, 0.f, flWrap);
-		}
+		if (!BeginTooltip())
+			return;
+		stWindow* pWindow = CurrentWindow();
+		const float flWrap = 320.f * Ctx().stSettings.flScale;
+		const vec2 vecSize = MeasureText(strText, flWrap);
+		const vec2 vecPosition = pWindow->Region().vecCursor;
+		ItemSize(vecSize);
+		pWindow->drawList.AddText(vecPosition, WithGlobalAlpha(Style().Get(EColor::Text)), strText, 0.f, flWrap);
 		EndTooltip();
 	}
 
