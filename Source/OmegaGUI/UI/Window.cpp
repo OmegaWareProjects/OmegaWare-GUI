@@ -861,7 +861,9 @@ namespace OmegaGUI
 
 	void EndTooltip()
 	{
-		End();
+		const stWindow* pWindow = CurrentWindow();
+		if (pWindow && HasFlag(pWindow->eFlags, EWindowFlags::Tooltip))
+			End();
 	}
 
 	void SetTooltip(std::string_view strText)
