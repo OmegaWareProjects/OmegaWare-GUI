@@ -375,7 +375,8 @@ namespace OmegaGUI
 			return;
 		stWindow* pWindow = CurrentWindow();
 		const stStyle& rStyle = g.stCurrentStyle;
-		const float flGap = rBar.vecBarCursor.y > rBar.rcBar.min.y - std::floor(rBar.flScroll) ? std::round(rStyle.vecItemSpacing.y * 1.5f) : 0.f;
+		const bool bDivider = rBar.vecBarCursor.y > rBar.rcBar.min.y - std::floor(rBar.flScroll);
+		const float flGap = bDivider ? std::round(rStyle.vecItemSpacing.y * 2.5f) : 0.f;
 		const vec2 vecText{ rBar.vecBarCursor.x + rStyle.vecFramePadding.x + 4.f, rBar.vecBarCursor.y + flGap };
 		const std::string_view strPrefix = rStyle.bConsolePrefixes ? "## " : "";
 		const bool bVisibleSection = !rBar.bScrollable || (vecText.y + GetTextLineHeight() > rBar.rcView.min.y && vecText.y < rBar.rcView.max.y);
@@ -384,7 +385,12 @@ namespace OmegaGUI
 			if (rBar.bScrollable)
 				pWindow->drawList.PushClipRect(rBar.rcView);
 			pWindow->drawList.AddText(vecText, WithGlobalAlpha(rStyle.Get(EColor::TextDisabled)), strPrefix);
-			pWindow->drawList.AddText(vecText + vec2{ MeasureText(strPrefix).x, 0.f }, WithGlobalAlpha(rStyle.Get(EColor::TextMuted)), EllipsizeText(VisibleLabel(strLabel), std::max(rBar.rcBar.max.x - vecText.x - MeasureText(strPrefix).x - rStyle.vecFramePadding.x, 10.f)));
+			if (bDivider)
+			{
+				const float flLineY = std::floor(rBar.vecBarCursor.y + flGap * .4f);
+				pWindow->drawList.AddLine({ rBar.rcBar.min.x + rStyle.vecFramePadding.x, flLineY }, { rBar.rcBar.max.x - rStyle.vecFramePadding.x, flLineY }, WithGlobalAlpha(rStyle.Get(EColor::Border)));
+			}
+			pWindow->drawList.AddText(vecText + vec2{ MeasureText(strPrefix).x, 0.f }, WithGlobalAlpha(rStyle.Get(EColor::TextDisabled)), EllipsizeText(VisibleLabel(strLabel), std::max(rBar.rcBar.max.x - vecText.x - MeasureText(strPrefix).x - rStyle.vecFramePadding.x, 10.f)));
 			if (rBar.bScrollable)
 				pWindow->drawList.PopClipRect();
 		}
